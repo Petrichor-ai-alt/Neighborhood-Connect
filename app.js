@@ -2,19 +2,43 @@
 const cfg=window.NC_CONFIG;
 const db=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);
 const $=id=>document.getElementById(id);
+const branding=cfg.branding||{};
+let neighborhoodName=branding.name||'Your neighborhood';
+$('brand-neighborhood').textContent=neighborhoodName;
+$('brand-location').textContent=branding.location||'';
+$('footer-neighborhood').textContent=` / ${neighborhoodName}`;
+$('join-heading').textContent=`Join ${neighborhoodName}`;
+$('page-eyebrow').textContent=`${neighborhoodName} · Your neighborhood community`;
+$('profile-audience').textContent=`Share what you’re comfortable sharing. Approved ${neighborhoodName} residents can see this profile.`;
+$('map').setAttribute('aria-label',`${neighborhoodName} household map`);
+if(branding.areaDescription)$('join').querySelector('p').textContent=branding.areaDescription;
+if(branding.signImage){$('neighborhood-sign').src=branding.signImage;$('neighborhood-sign').alt=`${neighborhoodName} neighborhood sign`;}
+if(branding.favicon)document.querySelector('link[rel="icon"]').href=branding.favicon;
+document.title=`Neighborhood Connect · ${neighborhoodName}`;
 let user,neighborhood,membership,households=[],map,markers=[],generation=0;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notice(message,error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);}
 function checked(result){if(result.error)throw result.error;return result.data;}
 async function run(fn){try{await fn();}catch(e){notice(e.message||'Something went wrong. Please try again.',true);}}
 function show(id,visible){$(id).hidden=!visible;}
-function view(id){['browse','profile','admin'].forEach(x=>show(x,x===id));document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===id));}
+function view(id){
+ if(!membership||(id==='admin'&&membership.role!=='admin'))return;
+ ['browse','profile','admin'].forEach(x=>show(x,x===id));
+ document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===id;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+ const pages={browse:['Your neighborhood, connected.','Find familiar faces, discover shared interests, and get to know your neighbors.'],profile:['Your household','A little introduction goes a long way. Share what makes your household yours.'],admin:['Your neighborhood dashboard','Review resident requests and help your community find its way in.']};
+ $('page-eyebrow').textContent=`${neighborhoodName} · ${id==='admin'?'Administration':'Resident community'}`;
+ $('page-title').textContent=pages[id][0];$('page-description').textContent=pages[id][1];
+}
 async function load(){
  const version=++generation;
  const session=checked(await db.auth.getSession());user=session.session?.user;
- ['auth','join','pending','directory'].forEach(x=>show(x,false));show('signout',!!user);
+ ['auth','join','pending','directory','topnav','admintab','account-role'].forEach(x=>show(x,false));show('signout',!!user);
+ $('page-eyebrow').textContent=`${neighborhoodName} · Your neighborhood community`;
+ $('page-title').innerHTML='Good neighbors.<br>A closer community.';
+ $('page-description').textContent='Get to know the people who share your streets. A private space to connect, built around your neighborhood.';
  if(!user){households=[];membership=null;markers.forEach(m=>m.map=null);markers=[];$('households').replaceChildren();$('detail').replaceChildren();$('myphotos').replaceChildren();$('requests').replaceChildren();show('detail',false);if(!$('recovery').hidden)return;show('auth',true);return;}
  neighborhood=checked(await db.from('neighborhoods').select('*').eq('slug',cfg.neighborhoodSlug).single());
+ neighborhoodName=neighborhood.name;$('brand-neighborhood').textContent=neighborhoodName;$('join-heading').textContent=`Join ${neighborhoodName}`;$('footer-neighborhood').textContent=` / ${neighborhoodName}`;document.title=`Neighborhood Connect · ${neighborhoodName}`;
  membership=checked(await db.from('memberships').select('*').eq('user_id',user.id).eq('neighborhood_id',neighborhood.id).maybeSingle());
  if(version!==generation)return;
  if(!membership){
@@ -25,12 +49,12 @@ async function load(){
  }
  households=checked(await db.from('households').select('*').eq('neighborhood_id',neighborhood.id).order('display_name'));
  if(version!==generation)return;
- show('directory',true);show('admintab',membership.role==='admin');view('browse');render();fillProfile();
+ show('directory',true);show('topnav',true);show('admintab',membership.role==='admin');show('account-role',true);$('account-role').textContent=membership.role==='admin'?'Neighborhood admin':'Resident';view('browse');render();fillProfile();
  await loadMap();await loadMyPhotos();if(membership.role==='admin')await loadRequests();
 }
 function render(){
  const q=$('search').value.toLowerCase();const visible=households.filter(h=>[h.display_name,h.residents,h.address,h.interests].join(' ').toLowerCase().includes(q));
- $('count').textContent=`${households.length} approved household${households.length===1?'':'s'} · Visible to Burr Oaks residents`;
+ $('count').textContent=`${households.length} approved household${households.length===1?'':'s'} · Visible to ${neighborhoodName} residents`;
  $('households').innerHTML=visible.length?visible.map(h=>`<button class="card" data-household="${h.id}"><h3>${esc(h.display_name)}</h3><p>${esc(h.address)}</p>${h.interests?`<span class="badge">${esc(h.interests)}</span>`:''}</button>`).join(''):'<div class="panel"><h3>No households found</h3><p>Try another search, or invite neighbors once setup is complete.</p></div>';
  $('households').querySelectorAll('[data-household]').forEach(b=>b.onclick=()=>run(()=>detail(b.dataset.household)));
  if(map)drawMarkers(visible);
