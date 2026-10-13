@@ -316,4 +316,140 @@ assert.equal(
 console.log(
   'PASS: geocoding migration/repeat, pending candidate privacy, administrator-only approval/refresh, expiring cache, hidden expired coordinates, cleanup, renewal, preserved manual locations.',
 );
+// Test the actual background-refresh SQL against deterministic adapters, not live Google/Vault.
+await db.exec(`create schema extensions;create schema vault;
+create table vault.decrypted_secrets(name text primary key,decrypted_secret text);
+create table extensions.test_http_fixture(status integer,body jsonb,throw_error boolean default false,calls integer default 0);
+create function extensions.http_get(uri varchar,params jsonb) returns table(status integer,content varchar)
+language plpgsql as $$begin
+ if uri<>'https://maps.googleapis.com/maps/api/geocode/json' then raise exception 'Unexpected endpoint';end if;
+ if params->>'key'<>'test-only-server-key' then raise exception 'Unexpected test key';end if;
+ if (select throw_error from extensions.test_http_fixture) then raise exception 'test-only-server-key must never appear in refresh status';end if;
+ update extensions.test_http_fixture set calls=calls+1;
+ return query select f.status,f.body::text::varchar from extensions.test_http_fixture f;
+end;$$;`);
+const refreshMigration = fs
+  .readFileSync(new URL('supabase/migrations/005-background-geocode-refresh.sql', root), 'utf8')
+  .replace(
+    /-- BEGIN SUPABASE EXTENSIONS[\s\S]*?-- END SUPABASE EXTENSIONS/,
+    '-- HTTP/Vault adapters installed above.',
+  )
+  .replace(
+    /-- BEGIN SUPABASE CRON[\s\S]*?-- END SUPABASE CRON/,
+    '-- Call scheduled function directly in local tests.',
+  );
+await db.exec(refreshMigration);
+await db.exec(refreshMigration);
+await denied(manager, 'select nc_private.refresh_due_geocodes()', [], /permission denied/);
+await assert.rejects(db.query('select nc_private.refresh_due_geocodes()'), /Supabase Vault/);
+await db.query(
+  "insert into vault.decrypted_secrets values('nc_google_geocoding_key','test-only-server-key')",
+);
+const googleResponse = {
+  status: 'OK',
+  results: [
+    {
+      address_components: [
+        { types: ['street_number'] },
+        { types: ['route'] },
+        { types: ['country'], short_name: 'US' },
+      ],
+      geometry: { location_type: 'ROOFTOP', location: { lat: 41.751, lng: -88.091 } },
+    },
+  ],
+};
+await db.query('insert into extensions.test_http_fixture(status,body) values(200,$1)', [
+  googleResponse,
+]);
+const runRefresh = async (force = false) =>
+  (await db.query('select nc_private.refresh_due_geocodes($1,1) result', [force])).rows[0].result;
+assert.equal((await runRefresh()).refreshed, 0);
+assert.equal((await db.query('select calls from extensions.test_http_fixture')).rows[0].calls, 0);
+await db.query(
+  "update geocoded_locations set geocoded_at=now()-interval '25 days',expires_at=now()+interval '4 days' where household_id=$1",
+  [locatedHousehold],
+);
+assert.equal((await runRefresh()).refreshed, 1);
+assert.equal((await db.query('select calls from extensions.test_http_fixture')).rows[0].calls, 1);
+assert.equal((await runRefresh()).refreshed, 0);
+assert.equal((await runRefresh(true)).refreshed, 1);
+const healthy = (
+  await db.query('select * from geocoded_locations where household_id=$1', [locatedHousehold])
+).rows[0];
+assert.ok(
+  new Date(healthy.expires_at).getTime() - new Date(healthy.geocoded_at).getTime() >= 28 * 86400000,
+);
+await db.query(
+  "update geocoded_locations set geocoded_at=now()-interval '25 days',expires_at=now()+interval '4 days' where household_id=$1",
+  [locatedHousehold],
+);
+await db.query(
+  "update nc_private.geocode_refresh_state set next_attempt=now()-interval '1 hour' where household_id=$1",
+  [locatedHousehold],
+);
+await db.query('update extensions.test_http_fixture set body=$1', [
+  { status: 'REQUEST_DENIED', error_message: 'test-only-server-key must not be stored' },
+]);
+assert.equal((await runRefresh()).failed, 1);
+assert.equal((await runRefresh()).failed, 0); // Retry backoff, not a flood of HTTP requests.
+const failure = (
+  await db.query('select * from nc_private.geocode_refresh_state where household_id=$1', [
+    locatedHousehold,
+  ])
+).rows[0];
+assert.equal(failure.error_code, 'REQUEST_DENIED');
+assert.equal(JSON.stringify(failure).includes('test-only-server-key'), false);
+const notExtended = (
+  await db.query('select geocoded_at from geocoded_locations where household_id=$1', [
+    locatedHousehold,
+  ])
+).rows[0];
+assert.ok(new Date(notExtended.geocoded_at).getTime() < Date.now() - 24 * 86400000);
+await db.query('update extensions.test_http_fixture set throw_error=true');
+assert.equal((await runRefresh(true)).failed, 1);
+assert.equal(
+  (
+    await db.query(
+      'select error_code from nc_private.geocode_refresh_state where household_id=$1',
+      [locatedHousehold],
+    )
+  ).rows[0].error_code,
+  'NETWORK_OR_RESPONSE_ERROR',
+);
+await db.query('update extensions.test_http_fixture set throw_error=false,body=$1', [
+  googleResponse,
+]);
+await db.query('delete from geocoded_locations where household_id=$1', [locatedHousehold]);
+assert.equal((await runRefresh(true)).refreshed, 1); // Recover a missing cache from a new lookup.
+assert.equal(
+  (await db.query('select latitude from households where id=$1', [locatedHousehold])).rows[0]
+    .latitude,
+  null,
+);
+assert.equal(
+  (await db.query('select latitude from households where id=$1', [h])).rows[0].latitude,
+  41,
+);
+const ambiguous = {
+  ...googleResponse,
+  results: [googleResponse.results[0], googleResponse.results[0]],
+};
+assert.equal(
+  (await db.query('select error_code from nc_private.parse_geocode_response($1)', [ambiguous]))
+    .rows[0].error_code,
+  'AMBIGUOUS_ADDRESS',
+);
+const partial = {
+  ...googleResponse,
+  results: [{ ...googleResponse.results[0], partial_match: true }],
+};
+assert.equal(
+  (await db.query('select error_code from nc_private.parse_geocode_response($1)', [partial]))
+    .rows[0].error_code,
+  'PARTIAL_MATCH',
+);
+await assert.rejects(db.query('select nc_private.refresh_due_geocodes(false,26)'), /Batch size/);
+console.log(
+  'PASS: day-25 background refresh, fresh-cache skip, renewed expiry, retries/backoff, missing-cache recovery, restricted execution, response validation, preserved manual pins, secret-safe error records.',
+);
 await db.close();

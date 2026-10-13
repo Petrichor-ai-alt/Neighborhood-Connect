@@ -79,9 +79,10 @@
       <p>
         Address lookup sends the street address to Google Geocoding to propose a house location.
         Proposed pins require neighborhood administrator approval. Google-derived coordinates are
-        cached for up to 29 days, hidden when expired, and deleted by an hourly cleanup job.
-        Administrator visits refresh eligible household locations. Manually entered location
-        information is kept with the household record.
+        cached for up to 29 days, hidden when expired, and deleted by an hourly cleanup job. A
+        scheduled database job refreshes eligible household locations before expiration.
+        Administrator visits can also refresh locations. Manually entered location information is
+        kept with the household record.
       </p>
       <p><a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>
     </main>
