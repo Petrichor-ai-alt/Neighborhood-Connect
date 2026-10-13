@@ -1,0 +1,3 @@
+[functions.refresh-geocodes]
+# The handler verifies the private scheduler token before doing any work.
+verify_jwt = false

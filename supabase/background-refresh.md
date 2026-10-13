@@ -1,131 +1,112 @@
-# Activate automatic location refresh
+# Background geocoding with service-account OAuth
 
-The database checks every hour at minute 15. Google household locations become
-eligible after 25 days, four days before their 29-day expiration. A successful
-new lookup renews the expiry. Errors leave still-valid coordinates in place and
-retry with a one-to-six-hour backoff. Cleanup still runs at minute 0. Neither job
-needs the website open. Manual coordinates are never changed by the refresh job.
+Migration 006 replaces the API-key implementation in 005. The website continues using its website-restricted Maps key. Do not delete that key. Background refresh uses Geocoding v4, a service-account credential stored only in Supabase, and short-lived address-geocoding OAuth tokens. No unrestricted Google API key is required.
 
-## 1. Install the migration
+## 1. Google Cloud
 
-After migration 004, run the complete contents of
-`supabase/migrations/005-background-geocode-refresh.sql` in **Supabase → SQL
-Editor → New query**. It enables HTTP/Vault support and installs the refresh job.
-It is safe to repeat. Until the Vault key is configured, a job attempt reports a
-missing-key error and leaves household data unchanged.
+1. Select the **Neighborhood Directory** project at the top of Google Cloud Console.
+2. Open **APIs & Services → Library**, search **Geocoding API**, and enable it. The project must have billing enabled.
+3. Open **IAM & Admin → Service Accounts → Create service account**.
+4. Name it `neighborhood-geocode-refresh` and click **Create and continue**.
+5. Grant **Service Usage Consumer** on this project (for the quota project header). Do not grant Owner or Editor. Finish creation; no human users need access to this account.
+6. Open the new service account → **Keys → Add key → Create new key → JSON → Create**. Save the downloaded file securely. Its private key belongs only in the server secret below. Do not upload it to GitHub or paste it into chat.
+7. The old background geocoding API key can be deleted in **APIs & Services → Credentials**. Keep the website key with its website and API restrictions.
 
-## 2. Create a separate server key
+## 2. Supabase secrets
 
-In your existing Google Cloud project:
+In your Supabase project open **Edge Functions → Secrets**.
 
-1. Confirm **Geocoding API** is enabled.
-2. Open **APIs & Services → Credentials → Create credentials → API key**.
-3. Name it **Neighborhood Connect Background Geocoding**.
-4. Under **Application restrictions**, select **None**. Database requests cannot
-   use the website/referrer restriction on your existing browser key.
-5. Under **API restrictions**, select **Restrict key** and choose only
-   **Geocoding API**. Save.
-
-Keep the existing website-restricted key unchanged. Do not put the new server key
-in `config.js`, GitHub, or chat. This server key is used only from the database.
-
-## 3. Store it in Supabase Vault
-
-Open **Vault** in your Supabase project (use dashboard search for “Vault” if
-needed). Add a secret with:
-
-- **Name:** `nc_google_geocoding_key`
-- **Secret/value:** the new server API key
-- **Description:** `Background household location refresh`
-
-Save it. The migration protects the decrypted-secret view from website roles.
-The job reads this secret internally and never returns it or stores raw Google
-responses in its status table.
-
-## 4. Verify and test
-
-Check both schedules in SQL Editor:
+- Add `GOOGLE_SERVICE_ACCOUNT_JSON`: paste the entire contents of the downloaded JSON file, including the braces. Keep the JSON's escaped newline characters intact.
+- Generate a private scheduler token in **SQL Editor**:
 
 ```sql
-SELECT
+select replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '') as worker_token;
+```
+
+- Add `NC_REFRESH_WORKER_TOKEN` in Edge Function Secrets using that generated value.
+- Open **Integrations → Vault** (or search for Vault in the dashboard). Add:
+  - `nc_refresh_worker_token`: exactly the same generated token.
+  - `nc_refresh_worker_url`: `https://xfkfkxhcgcbufwsobjsf.supabase.co/functions/v1/refresh-geocodes`.
+- If those Vault names already exist, edit them instead of creating duplicates. Delete the obsolete Vault secret `nc_google_geocoding_key` after switching.
+
+Supabase supplies `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to Edge Functions automatically. Never put either the service-role key or these new secrets in `config.js`.
+
+## 3. Deploy the function
+
+1. Open **Edge Functions**, create a function using the dashboard editor, and name it **`refresh-geocodes`**.
+2. Replace its `index.ts` with the complete contents of [`functions/refresh-geocodes/index.ts`](functions/refresh-geocodes/index.ts).
+3. Deploy it.
+4. In the function's settings, disable **Verify JWT** for this function only. The code checks the private `x-nc-refresh-token` header before any database or Google access. Leave JWT verification enabled for other functions.
+
+CLI alternative from the repository root:
+
+```sh
+supabase functions deploy refresh-geocodes --project-ref xfkfkxhcgcbufwsobjsf --no-verify-jwt
+```
+
+## 4. Switch the schedule
+
+In **SQL Editor**, paste and run the complete contents of [`migrations/006-oauth-geocode-refresh.sql`](migrations/006-oauth-geocode-refresh.sql). It requires migrations 004 and 005, which you already ran. Do not rerun `setup.sql`.
+
+The hourly job refreshes Google locations at day 25. Successful lookups receive a new 29-day expiry. Failed lookups retain their original expiry and retry after one to six hours. Manual locations are untouched. The hourly expired-cache cleanup remains enabled. Function deployment and secrets must be completed before running the new job.
+
+## 5. Test and inspect
+
+Force a single-household refresh from SQL Editor:
+
+```sql
+select
+  nc_private.enqueue_geocode_refresh (true, 1);
+```
+
+The result is an asynchronous HTTP request ID, not proof of a successful Google lookup. After the request completes, inspect:
+
+```sql
+select
+  status_code,
+  timed_out
+from
+  net._http_response
+order by
+  created desc
+limit
+  5;
+
+select
+  household_id,
+  last_attempt,
+  last_success,
+  error_code,
+  failures,
+  next_attempt
+from
+  nc_private.geocode_refresh_state
+order by
+  last_attempt desc;
+
+select
+  household_id,
+  geocoded_at,
+  expires_at
+from
+  public.geocoded_locations
+where
+  household_id is not null;
+
+select
+  jobid,
   jobname,
   schedule,
   active
-FROM
+from
   cron.job
-WHERE
-  jobname IN (
+where
+  jobname in (
     'nc-refresh-geocodes',
     'nc-purge-expired-geocodes'
   );
 ```
 
-Expected: refresh `15 * * * *`, cleanup `0 * * * *`, both active.
+A successful worker response reports `attempted`, `refreshed`, and `failed`. If there are no Google-managed households, all counts are zero; manually positioned households deliberately stay unchanged. Test an approved Google-managed household to verify a real lookup. `OAUTH` indicates service-account/secret configuration trouble; `GOOGLE_HTTP` indicates a Google API, billing, permission or quota failure. Use Google Cloud API metrics to diagnose without logging household addresses or credentials.
 
-Test one Google household immediately, without changing dates:
-
-```sql
-SELECT
-  nc_private.refresh_due_geocodes (true, 1);
-```
-
-This makes a real Google request and persists a renewed cache if successful.
-Expected: `refreshed: 1`, `failed: 0`. If no household uses Google-derived
-coordinates, `refreshed: 0` is normal; create and approve a test signup through
-automatic address lookup first. Manually entered households are excluded.
-
-Inspect refresh status without exposing the key:
-
-```sql
-SELECT
-  h.display_name,
-  s.last_attempt,
-  s.last_success,
-  s.error_code,
-  s.failures,
-  s.next_attempt
-FROM
-  nc_private.geocode_refresh_state AS s
-  JOIN public.households AS h ON h.id = s.household_id
-ORDER BY
-  s.last_attempt DESC;
-```
-
-`REQUEST_DENIED` usually means the server key/API configuration needs attention.
-`OVER_QUERY_LIMIT` or `OVER_DAILY_LIMIT` requires checking Google's quota/billing.
-Ambiguous, partial, coarse, and substantially moved locations are rejected rather
-than silently replacing an approved pin. Raw Google error messages are not stored.
-
-Inspect scheduled executions:
-
-```sql
-SELECT
-  status,
-  return_message,
-  start_time,
-  end_time
-FROM
-  cron.job_run_details
-WHERE
-  jobid IN (
-    SELECT
-      jobid
-    FROM
-      cron.job
-    WHERE
-      jobname = 'nc-refresh-geocodes'
-  )
-ORDER BY
-  start_time DESC
-LIMIT
-  10;
-```
-
-The default job processes at most ten households per run, oldest first. Valid
-recent locations are skipped. Missing Google caches can be recovered from a new
-lookup. Persistent failures never extend old coordinates beyond expiration;
-profiles remain available even if their map pins temporarily disappear.
-
-Local automated tests run the real refresh function with deterministic HTTP and
-Vault adapters. Actual extension installation, encrypted Vault storage, Cron
-execution, and Google authorization are verified with the activation steps above.
+The function only claims addresses from the database. Five-minute leases prevent duplicate jobs; changed addresses, stale responses, large unexpected position changes, and newer administrator refreshes cannot be overwritten. Residents cannot execute its database RPCs. The setup has local automated verification; your live Supabase/Google activation must be checked with the steps above.

@@ -1,3 +1,4 @@
+-- Superseded by 006-oauth-geocode-refresh.sql; run both in order for new installs.
 -- Run 004 first. Then configure nc_google_geocoding_key in Supabase Vault.
 -- This migration is transactional and safe to repeat. Never put the key in this file.
 BEGIN;

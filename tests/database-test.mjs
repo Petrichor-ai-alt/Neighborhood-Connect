@@ -452,4 +452,43 @@ await assert.rejects(db.query('select nc_private.refresh_due_geocodes(false,26)'
 console.log(
   'PASS: day-25 background refresh, fresh-cache skip, renewed expiry, retries/backoff, missing-cache recovery, restricted execution, response validation, preserved manual pins, secret-safe error records.',
 );
+await db.exec('create role service_role; create schema net;');
+await db.exec(
+  fs
+    .readFileSync(new URL('supabase/migrations/006-oauth-geocode-refresh.sql', root), 'utf8')
+    .replace(/-- BEGIN SUPABASE EXTENSIONS[\s\S]*?-- END SUPABASE EXTENSIONS/g, '')
+    .replace(/-- BEGIN SUPABASE CRON[\s\S]*?-- END SUPABASE CRON/g, ''),
+);
+const claim = (await db.query('select * from claim_geocode_refresh(1,true)')).rows[0];
+assert.ok(claim);
+assert.equal(
+  (await db.query('select * from claim_geocode_refresh(10,true)')).rows.some(
+    (r) => r.household_id === claim.household_id,
+  ),
+  false,
+);
+assert.equal(
+  (
+    await db.query(
+      'select finish_geocode_refresh($1,$2,(select latitude from geocoded_locations where household_id=$1),(select longitude from geocoded_locations where household_id=$1),NULL) result',
+      [claim.household_id, claim.lease_token],
+    )
+  ).rows[0].result,
+  true,
+);
+assert.equal(
+  (
+    await db.query(
+      'select finish_geocode_refresh($1,$2,(select latitude from geocoded_locations where household_id=$1),(select longitude from geocoded_locations where household_id=$1),NULL) result',
+      [claim.household_id, claim.lease_token],
+    )
+  ).rows[0].result,
+  false,
+);
+await db.exec('set role authenticated');
+await assert.rejects(db.query('select * from claim_geocode_refresh(1,true)'), /permission denied/);
+await db.exec('reset role');
+console.log(
+  'PASS: OAuth worker leases, replay protection, successful cache renewal and resident RPC denial.',
+);
 await db.close();
