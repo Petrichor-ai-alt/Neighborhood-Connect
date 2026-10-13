@@ -2222,3 +2222,38 @@ footer a {
 .household-cover:has(.google-house-photo) + .household-identity {
   margin-top: 12px;
 }
+
+.pin-popup {
+  min-width: 160px;
+  padding: 2px 4px 6px;
+  color: var(--ink);
+  font:
+    14px/1.5 'DM Sans',
+    system-ui,
+    sans-serif;
+}
+.pin-popup .pin-popup-members {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.pin-popup-phone {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--accent);
+  text-decoration: none;
+}
+.pin-popup-link {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  text-align: left;
+}
+.pin-popup-link:hover {
+  background: transparent;
+  text-decoration: underline;
+}

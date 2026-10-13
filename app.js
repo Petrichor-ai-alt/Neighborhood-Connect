@@ -59,6 +59,7 @@ function show(id, visible) {
   $(id).hidden = !visible;
 }
 function view(id) {
+  closePinPopup();
   if (id === 'person' && !membersEnabled) return;
   if (!membership || (id === 'admin' && membership.role !== 'admin')) return;
   ['overview', 'browse', 'mapview', 'profile', 'person', 'admin'].forEach((x) => show(x, x === id));
@@ -146,6 +147,7 @@ async function load() {
   $('page-description').textContent = 'Your private community, in one place.';
   show('page-eyebrow', true);
   if (!user) {
+    closePinPopup();
     households = [];
     membership = null;
     members = [];
@@ -486,7 +488,7 @@ async function loadMap() {
     });
   try {
     await mapsPromise;
-    if (!map)
+    if (!map) {
       map = new google.maps.Map($('map'), {
         center: cfg.center,
         zoom: 15,
@@ -494,12 +496,62 @@ async function loadMap() {
         mapTypeControl: true,
         streetViewControl: false,
       });
+      map.addListener('click', closePinPopup);
+    }
     render();
   } catch (e) {
     notice(e.message, true);
   }
 }
+let pinPopup;
+function closePinPopup() {
+  if (!pinPopup) return;
+  pinPopup.close();
+  pinPopup.setContent('');
+}
+function pinPopupContent(h) {
+  const content = document.createElement('div');
+  content.className = 'pin-popup';
+  const names = members
+    .filter((person) => person.household_id === h.id)
+    .map((person) => person.display_name)
+    .join(', ');
+  const memberLine = document.createElement('p');
+  memberLine.className = 'pin-popup-members';
+  memberLine.textContent = names || h.residents || 'Members not listed yet';
+  content.append(memberLine);
+  const phone = (h.phone || '').trim();
+  if (phone) {
+    const dialNumber = phone.replace(/[^\d+]/g, '');
+    const phoneLine = document.createElement(/\d/.test(dialNumber) ? 'a' : 'span');
+    phoneLine.className = 'pin-popup-phone';
+    phoneLine.textContent = phone;
+    if (phoneLine.tagName === 'A') {
+      phoneLine.href = `tel:${dialNumber}`;
+      phoneLine.setAttribute('aria-label', `Call household: ${phone}`);
+    }
+    content.append(phoneLine);
+  }
+  const link = document.createElement('button');
+  link.className = 'pin-popup-link';
+  link.type = 'button';
+  link.textContent = 'View household →';
+  link.onclick = () => {
+    closePinPopup();
+    run(() => detail(h.id));
+  };
+  content.append(link);
+  return content;
+}
+function openPinPopup(h, marker, shouldFocus = true) {
+  if (!membership || !households.some((household) => household.id === h.id)) return;
+  if (!pinPopup) pinPopup = new google.maps.InfoWindow({ maxWidth: 260 });
+  pinPopup.setOptions({ ariaLabel: `${h.display_name} household members and phone` });
+  pinPopup.setContent(pinPopupContent(h));
+  pinPopup.open({ map, anchor: marker, shouldFocus });
+}
 function drawMarkers(rows) {
+  closePinPopup();
   markers.forEach((m) => (m.map = null));
   markers = rows.map((h) => {
     const pin = document.createElement('div');
@@ -512,7 +564,11 @@ function drawMarkers(rows) {
       position: { lat: h.latitude, lng: h.longitude },
       title: h.display_name,
     });
-    m.addListener('click', () => run(() => detail(h.id)));
+    m.addListener('click', () => openPinPopup(h, m));
+    pin.addEventListener('mouseenter', () => {
+      if (window.matchMedia('(hover: hover) and (pointer: fine)').matches)
+        openPinPopup(h, m, false);
+    });
     return m;
   });
   if (rows.length) {

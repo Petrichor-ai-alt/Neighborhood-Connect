@@ -326,6 +326,86 @@ async function setup({ account = 'manager', migrated = true, signed = true } = {
   console.log(
     'PASS: photo priority, explicit Street View, no-photo choice, attributed rendering, safe avatar, missing-image fallback, pre-migration fallback.',
   );
+  const pins = await setup();
+  const windows = [];
+  pins.ctx.google = {
+    maps: {
+      InfoWindow: class {
+        constructor() {
+          windows.push(this);
+        }
+        setContent(value) {
+          this.content = value;
+        }
+        setOptions(value) {
+          this.options = value;
+        }
+        open(value) {
+          this.openOptions = value;
+          this.opened = true;
+        }
+        close() {
+          this.opened = false;
+        }
+      },
+      marker: {
+        AdvancedMarkerElement: class {
+          constructor(options) {
+            Object.assign(this, options);
+            this.listeners = {};
+          }
+          addListener(event, fn) {
+            this.listeners[event] = fn;
+          }
+        },
+      },
+      LatLngBounds: class {
+        extend() {}
+      },
+      event: { addListenerOnce() {} },
+    },
+  };
+  vm.runInContext(
+    "map={fitBounds(){}};households[0].phone='(630) 555-0123';drawMarkers(households)",
+    pins.ctx,
+  );
+  vm.runInContext('markers[0].listeners.click()', pins.ctx);
+  assert.equal(windows.length, 1);
+  assert.equal(windows[0].openOptions.shouldFocus, true);
+  assert.equal(
+    windows[0].content.querySelector('.pin-popup-phone').getAttribute('href'),
+    'tel:6305550123',
+  );
+  assert.ok(windows[0].content.textContent.includes('Alex <Unlinked>'));
+  assert.equal(windows[0].content.querySelector('Unlinked'), null);
+  assert.equal(windows[0].content.querySelectorAll('img').length, 0);
+  pins.ctx.window.matchMedia = () => ({ matches: true });
+  vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseenter'))", pins.ctx);
+  assert.equal(windows.length, 1);
+  assert.equal(windows[0].openOptions.shouldFocus, false);
+  vm.runInContext("households[0].phone='';openPinPopup(households[0],markers[0])", pins.ctx);
+  assert.equal(windows[0].content.querySelector('.pin-popup-phone'), null);
+  let openedHousehold;
+  pins.ctx.captureHousehold = (id) => {
+    openedHousehold = id;
+  };
+  vm.runInContext('detail=async(id)=>captureHousehold(id)', pins.ctx);
+  windows[0].content.querySelector('button').onclick();
+  assert.equal(openedHousehold, 'home1');
+  assert.equal(windows[0].opened, false);
+  assert.equal(windows[0].content, '');
+  vm.runInContext(
+    "members=[];households[0].residents='Legacy names';openPinPopup(households[0],markers[0])",
+    pins.ctx,
+  );
+  assert.ok(windows[0].content.textContent.includes('Legacy names'));
+  vm.runInContext("view('profile')", pins.ctx);
+  assert.equal(windows[0].opened, false);
+  vm.runInContext('membership=null;openPinPopup(households[0],markers[0])', pins.ctx);
+  assert.equal(windows[0].opened, false);
+  console.log(
+    'PASS: compact pin popup, click/tap and desktop hover, one reusable popup, safe member text, tap-to-call, missing phone, legacy names, profile link, navigation cleanup, approval guard.',
+  );
   console.log(
     'PASS: signed-out privacy, pre-migration fallback, manager/member controls, household/member details, escaped names, member search, member creation, personal-profile navigation.',
   );
