@@ -91,3 +91,7 @@ The embedded PostgreSQL tests validate cache privacy, approval/refresh permissio
 ## Background location refresh
 
 `supabase/migrations/005-background-geocode-refresh.sql` adds an hourly database job that refreshes Google household locations once they reach 25 days old. Successful lookups reset the 29-day expiry. Network/API errors retain the still-valid coordinates and retry with a one-to-six-hour backoff. Cleanup remains the safety net for a prolonged outage; old coordinates are never extended without a successful new lookup. No website visit is required. Manual coordinates and pending resident requests are untouched. Migration `006-oauth-geocode-refresh.sql` replaces its API-key worker with a service-account OAuth Edge Function. See `supabase/background-refresh.md` for activation, secret setup, and testing.
+
+## Private account settings
+
+Account Settings is separate from the neighbor-visible personal and household profiles. It shows the current login, email verification and neighborhood/household roles; supports confirmed login-email changes, password changes/reset emails, local/global sign-out, individual contact privacy and guarded account deletion. Run migration `007-account-settings.sql` and deploy the `delete-account` Edge Function as described in [the activation guide](supabase/account-settings.md). Existing contact visibility is preserved, and hidden personal contact values are stored only in the private schema. Account deletion keeps the household and requires another manager/administrator where applicable.

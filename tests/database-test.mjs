@@ -491,4 +491,104 @@ await db.exec('reset role');
 console.log(
   'PASS: OAuth worker leases, replay protection, successful cache renewal and resident RPC denial.',
 );
+
+await db.exec('alter table storage.objects add column owner_id text');
+const settingsMigration = fs.readFileSync(
+  new URL('supabase/migrations/007-account-settings.sql', root),
+  'utf8',
+);
+await db.exec(settingsMigration);
+await db.exec(settingsMigration);
+const account1 = '10000000-0000-0000-0000-000000000001',
+  account2 = '10000000-0000-0000-0000-000000000002';
+await db.query(
+  "insert into auth.users(id,email) values($1,'account1@example.test'),($2,'account2@example.test')",
+  [account1, account2],
+);
+const settingsN = (
+  await db.query(
+    "insert into neighborhoods(slug,name) values('settings-test','Settings test') returning id",
+  )
+).rows[0].id;
+const settingsH = (
+  await db.query(
+    "insert into households(neighborhood_id,address,display_name,latitude,longitude) values($1,'1 Settings Lane','Settings home',41,-88) returning id",
+    [settingsN],
+  )
+).rows[0].id;
+await db.query(
+  "insert into memberships(user_id,neighborhood_id,household_id,role,household_role) values($1,$3,$4,'admin','manager'),($2,$3,$4,'resident','member')",
+  [account1, account2, settingsN, settingsH],
+);
+const settingsP = (
+  await db.query(
+    "insert into household_members(user_id,household_id,display_name) values($1,$2,'Account One') returning id",
+    [account1, settingsH],
+  )
+).rows[0].id;
+await db.query("select set_config('request.user_id',$1,false)", [account1]);
+await db.exec('set role authenticated');
+await db.query(
+  "select save_account_contacts('settings-test','hidden@example.test','555-1234',false,false)",
+);
+assert.equal(
+  (await db.query('select email from household_members where id=$1', [settingsP])).rows[0].email,
+  '',
+);
+assert.equal(
+  (await db.query("select account_settings('settings-test') settings")).rows[0].settings.contact
+    .email,
+  'hidden@example.test',
+);
+await assert.rejects(db.query('select * from nc_private.person_contacts'), /permission denied/);
+await db.query("select save_household_member($1,$2,'Account One edited','','','','','')", [
+  settingsH,
+  settingsP,
+]);
+assert.equal(
+  (await db.query("select account_settings('settings-test') settings")).rows[0].settings.contact
+    .email,
+  'hidden@example.test',
+);
+await db.exec('reset role');
+await db.query("select set_config('request.user_id',$1,false)", [account2]);
+await db.exec('set role authenticated');
+assert.equal(
+  (await db.query("select account_settings('settings-test') settings")).rows[0].settings.contact,
+  null,
+);
+await assert.rejects(
+  db.query("select save_account_contacts('burr-oaks','steal@example.test','',true,true)"),
+  /not linked/,
+);
+await assert.rejects(db.query('select account_deletion_plan($1)', [account1]), /permission denied/);
+await db.exec('reset role');
+await assert.rejects(
+  db.query('delete from auth.users where id=$1', [account1]),
+  /last neighborhood administrator/,
+);
+await db.query("update memberships set role='admin' where user_id=$1", [account2]);
+await assert.rejects(
+  db.query('delete from auth.users where id=$1', [account1]),
+  /Give another household/,
+);
+await db.query("update memberships set household_role='manager' where user_id=$1", [account2]);
+await db.query('delete from auth.users where id=$1', [account1]);
+assert.equal((await db.query('select id from households where id=$1', [settingsH])).rows.length, 1);
+assert.equal(
+  (await db.query('select id from household_members where id=$1', [settingsP])).rows.length,
+  0,
+);
+assert.equal(
+  (await db.query('select * from nc_private.person_contacts where person_id=$1', [settingsP])).rows
+    .length,
+  0,
+);
+assert.equal(
+  (await db.query('select user_id from memberships where user_id=$1', [account2])).rows.length,
+  1,
+);
+console.log(
+  'PASS: account settings migration/repeat, private contact enforcement and preservation, cross-account denial, last-admin/manager deletion guards, personal deletion with retained household.',
+);
 await db.close();

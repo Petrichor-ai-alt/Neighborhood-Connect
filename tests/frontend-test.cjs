@@ -171,6 +171,32 @@ async function setup({
             : null,
         },
       }),
+      getUser: async () => ({
+        data: {
+          user: {
+            id: account,
+            email: 'example@test.invalid',
+            email_confirmed_at: '2026-01-01',
+            user_metadata: {},
+          },
+        },
+      }),
+      signInWithPassword: async (args) => {
+        calls.push({ name: 'signInWithPassword', args });
+        return { data: { user: { id: account } } };
+      },
+      updateUser: async (args, options) => {
+        calls.push({ name: 'updateUser', args, options });
+        return { data: { user: { id: account } } };
+      },
+      signOut: async (args) => {
+        calls.push({ name: 'signOut', args });
+        return { data: null };
+      },
+      resetPasswordForEmail: async (email, options) => {
+        calls.push({ name: 'resetPasswordForEmail', args: { email, options } });
+        return { data: {} };
+      },
       onAuthStateChange() {},
     },
     storage: {
@@ -183,6 +209,21 @@ async function setup({
     },
     rpc: async (name, args) => {
       calls.push({ name, args });
+      if (name === 'account_settings')
+        return {
+          data: {
+            contact: approved
+              ? {
+                  email: 'private@test.invalid',
+                  phone: '123',
+                  share_email: false,
+                  share_phone: false,
+                }
+              : null,
+            deletion_blocker:
+              'Give another household login manager access in My Household before deleting your account.',
+          },
+        };
       if (name === 'geocoding_ready') return { data: geocoding };
       if (name === 'request_access') {
         requests.push({
@@ -270,6 +311,7 @@ async function setup({
   vm.runInContext(fs.readFileSync(root + 'geocoding.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'household-photos.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'members.js', 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(root + 'account-settings.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'app.js', 'utf8').replace('\nrun(load);', ''), ctx);
   vm.runInContext('loadMap=async()=>{}', ctx);
   await vm.runInContext('load()', ctx);
@@ -576,4 +618,52 @@ async function setup({
 })().catch((e) => {
   console.error(e);
   process.exit(1);
+});
+
+(async () => {
+  const { ctx, document, calls } = await setup();
+  vm.runInContext("view('settings')", ctx);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(document.getElementById('settings').hidden, false);
+  assert.equal(document.getElementById('directory').hidden, true);
+  assert.equal(document.getElementById('settings-email').textContent, 'example@test.invalid');
+  assert.equal(
+    document.getElementById('account-contacts-form').elements.contact_email.value,
+    'private@test.invalid',
+  );
+  assert.equal(
+    document.getElementById('account-contacts-form').elements.share_email.checked,
+    false,
+  );
+  assert.equal(document.getElementById('account-delete-form').hidden, true);
+  const form = document.getElementById('account-password-form');
+  form.elements.current_password.value = 'current-pass';
+  form.elements.password.value = 'new-password-long';
+  form.elements.confirm_password.value = 'does-not-match';
+  form.onsubmit({ preventDefault() {}, target: form });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(
+    calls.some((c) => c.name === 'updateUser'),
+    false,
+  );
+  form.elements.current_password.value = 'current-pass';
+  form.elements.password.value = 'new-password-long';
+  form.elements.confirm_password.value = 'new-password-long';
+  form.onsubmit({ preventDefault() {}, target: form });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(calls.find((c) => c.name === 'updateUser').args.password, 'new-password-long');
+  assert.equal(form.elements.current_password.value, '');
+  const pending = await setup({ approved: false });
+  vm.runInContext("view('settings')", pending.ctx);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(pending.document.getElementById('settings').hidden, false);
+  assert.equal(pending.document.getElementById('join').hidden, true);
+  vm.runInContext('clearAccountSettings()', ctx);
+  assert.equal(document.getElementById('settings-email').textContent, '');
+  console.log(
+    'PASS: private settings routing, pending-user access, hidden contact controls, deletion handoff, password match/check and secret clearing.',
+  );
+})().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
 });

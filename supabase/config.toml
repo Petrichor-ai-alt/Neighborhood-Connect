@@ -1,3 +1,7 @@
 [functions.refresh-geocodes]
 # The handler verifies the private scheduler token before doing any work.
 verify_jwt = false
+
+[functions.delete-account]
+# Auth.getUser validates the user's bearer token inside the function.
+verify_jwt = false

@@ -59,16 +59,24 @@ function show(id, visible) {
   $(id).hidden = !visible;
 }
 function view(id) {
+  if (!user) return;
   closePinPopup();
   if (id === 'person' && !membersEnabled) return;
-  if (!membership || (id === 'admin' && membership.role !== 'admin')) return;
-  ['overview', 'browse', 'mapview', 'profile', 'person', 'admin'].forEach((x) => show(x, x === id));
+  if ((!membership && id !== 'settings') || (id === 'admin' && membership.role !== 'admin')) return;
+  ['overview', 'browse', 'mapview', 'profile', 'person', 'admin', 'settings'].forEach((x) =>
+    show(x, x === id),
+  );
   document.querySelectorAll('[data-view]').forEach((b) => {
     const active = b.dataset.view === id;
     b.classList.toggle('active', active);
     if (active) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
+  show('directory', !!membership && id !== 'settings');
+  if (id === 'settings') {
+    ['join', 'pending', 'invite-panel', 'recovery'].forEach((x) => show(x, false));
+    run(renderAccountSettings);
+  }
   const pages = {
     overview: [greetingName ? `Welcome back, ${greetingName}` : 'Welcome back', neighborhoodName],
     browse: ['Meet your neighbors', `A private directory of ${neighborhoodName} households.`],
@@ -80,6 +88,7 @@ function view(id) {
       'Your household',
       'A little introduction goes a long way. Share what makes your household yours.',
     ],
+    settings: ['Account settings', 'Your login, security, and contact preferences.'],
     person: ['Your personal profile', 'Help your neighbors get to know you.'],
     admin: [
       'Your neighborhood dashboard',
@@ -139,8 +148,11 @@ async function load() {
     'directory-search',
     'directory-controls',
     'persontab',
+    'settings',
   ].forEach((x) => show(x, false));
   show('signout', !!user);
+  show('settings-tab', !!user);
+  clearAccountSettings();
   syncInvitePanel();
   $('page-eyebrow').textContent = `${neighborhoodName} · Your neighborhood community`;
   $('page-title').textContent = 'Welcome to your neighborhood';
@@ -816,7 +828,7 @@ $('passwordform').onsubmit = (e) => {
 };
 $('signout').onclick = () =>
   run(async () => {
-    checked(await db.auth.signOut());
+    checked(await db.auth.signOut({ scope: 'local' }));
     show('recovery', false);
     notice('Signed out.');
     await load();
@@ -971,8 +983,19 @@ db.auth.onAuthStateChange((event) => {
     show('recovery', true);
     show('auth', false);
   }
+  if (event === 'USER_UPDATED')
+    setTimeout(
+      () =>
+        run(async () => {
+          const settingsOpen = !$('settings').hidden;
+          await load();
+          if (settingsOpen && user) view('settings');
+        }),
+      0,
+    );
   if (event === 'SIGNED_OUT') setTimeout(() => run(load), 0);
 });
+initAccountSettings();
 initMembersUI();
 initHouseholdPhotos();
 run(load);

@@ -21,7 +21,8 @@
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=address-geocoding-1" defer></script>
     <script src="members.js?v=address-geocoding-1" defer></script>
-    <script src="app.js?v=address-geocoding-1" defer></script>
+    <script src="account-settings.js?v=account-settings-1" defer></script>
+    <script src="app.js?v=account-settings-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -167,6 +168,7 @@
         <span id="account-avatar" class="account-avatar" hidden aria-hidden="true">NC</span>
         <div>
           <span id="account-role" class="account-role" hidden></span
+          ><button id="settings-tab" data-view="settings" hidden>Account settings</button
           ><button id="signout" hidden>Sign out</button>
         </div>
       </div>
@@ -457,6 +459,177 @@
           </p>
           <div id="requests"></div>
         </div>
+      </section>
+
+      <section id="settings" hidden aria-label="Private account settings">
+        <div class="settings-summary panel">
+          <span class="eyebrow">Only you can see these settings</span>
+          <h2 id="settings-name">Your account</h2>
+          <dl class="settings-facts">
+            <div>
+              <dt>Signed in as</dt>
+              <dd id="settings-email"></dd>
+            </div>
+            <div>
+              <dt>Email status</dt>
+              <dd id="settings-verified"></dd>
+            </div>
+            <div>
+              <dt>Neighborhood</dt>
+              <dd id="settings-neighborhood"></dd>
+            </div>
+            <div>
+              <dt>Household</dt>
+              <dd id="settings-household"></dd>
+            </div>
+            <div>
+              <dt>Your role</dt>
+              <dd id="settings-role"></dd>
+            </div>
+          </dl>
+          <button id="settings-back" class="text-link">Back to community</button>
+        </div>
+        <div class="settings-grid">
+          <section class="panel">
+            <h2>Login email</h2>
+            <p>
+              Your sign-in address is private. Changing it does not change your directory contact
+              email.
+            </p>
+            <p id="settings-pending-email" hidden></p>
+            <form id="account-email-form">
+              <label
+                >New login email<input
+                  name="email"
+                  type="email"
+                  required
+                  maxlength="200"
+                  autocomplete="email"
+              /></label>
+              <label
+                >Current password<input
+                  name="current_password"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+              /></label>
+              <button class="primary">Send confirmation</button>
+            </form>
+            <p class="settings-note">
+              Follow the confirmation email instructions. Your current login email stays active
+              until the change is confirmed.
+            </p>
+          </section>
+          <section class="panel">
+            <h2>Password</h2>
+            <p>Choose a password you do not use elsewhere.</p>
+            <form id="account-password-form">
+              <label
+                >Current password<input
+                  name="current_password"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+              /></label>
+              <label
+                >New password<input
+                  name="password"
+                  type="password"
+                  required
+                  minlength="12"
+                  autocomplete="new-password"
+                  aria-describedby="password-help"
+              /></label>
+              <p id="password-help" class="settings-note">Use at least 12 characters.</p>
+              <label
+                >Confirm new password<input
+                  name="confirm_password"
+                  type="password"
+                  required
+                  minlength="12"
+                  autocomplete="new-password"
+              /></label>
+              <button class="primary">Update password</button>
+            </form>
+            <button id="account-reset-password" class="text-link">
+              Email me a password reset link
+            </button>
+          </section>
+          <section class="panel">
+            <h2>Contact privacy</h2>
+            <p>
+              Choose what approved neighbors can see on your individual profile. Shared household
+              contact details are managed in My Household.
+            </p>
+            <p id="account-contacts-status">Loading your contact settings…</p>
+            <form id="account-contacts-form" hidden>
+              <label
+                >Directory contact email<input
+                  name="contact_email"
+                  type="email"
+                  maxlength="200"
+                  autocomplete="email"
+              /></label>
+              <label class="settings-check"
+                ><input name="share_email" type="checkbox" /> Show my email to approved
+                neighbors</label
+              >
+              <label
+                >Personal phone<input
+                  name="contact_phone"
+                  type="tel"
+                  maxlength="40"
+                  autocomplete="tel"
+              /></label>
+              <label class="settings-check"
+                ><input name="share_phone" type="checkbox" /> Show my phone to approved
+                neighbors</label
+              >
+              <button class="primary">Save contact preferences</button>
+            </form>
+          </section>
+          <section class="panel">
+            <h2>Signed-in sessions</h2>
+            <p>Sign out on this device, or end your sessions across all devices.</p>
+            <div class="settings-actions">
+              <button id="account-signout-local">Sign out here</button
+              ><button id="account-signout-all">Sign out all devices</button>
+            </div>
+            <p class="settings-note">
+              Other devices may keep access briefly until their current access token expires.
+            </p>
+          </section>
+        </div>
+        <section class="panel settings-delete">
+          <h2>Delete your account</h2>
+          <p>
+            This permanently removes your login, individual profiles, resident requests, and photos
+            uploaded by this account. Your household, its other members, and shared household
+            details remain. Shared photos you uploaded will also be removed.
+          </p>
+          <p>
+            Before deleting, give another household login manager access in My Household. A
+            neighborhood must keep another administrator too.
+          </p>
+          <p id="account-delete-status">Loading account deletion options…</p>
+          <form id="account-delete-form" hidden>
+            <label
+              >Current password<input
+                name="current_password"
+                type="password"
+                required
+                autocomplete="current-password"
+            /></label>
+            <label
+              >Type DELETE to confirm<input
+                name="confirmation"
+                required
+                pattern="DELETE"
+                autocomplete="off"
+            /></label>
+            <button class="danger">Permanently delete my account</button>
+          </form>
+        </section>
       </section>
     </main>
     <footer>

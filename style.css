@@ -2289,3 +2289,81 @@ footer a {
 .coordinates input[readonly] {
   background: #eef2e9;
 }
+
+/* Private account settings reuse the community dashboard's surfaces. */
+#settings {
+  max-width: 1120px;
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.settings-grid .panel {
+  margin: 0;
+}
+.settings-summary {
+  margin-bottom: 20px;
+}
+.settings-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 28px;
+}
+.settings-facts div {
+  min-width: 0;
+}
+.settings-facts dt {
+  color: var(--muted);
+  font-size: 13px;
+}
+.settings-facts dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.settings-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.settings-check input {
+  width: 18px;
+  min-height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+}
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.settings-delete {
+  margin-top: 20px;
+  border-left: 3px solid #b54439;
+}
+.settings-delete form {
+  max-width: 500px;
+}
+button.danger {
+  background: #a83228;
+  color: #fff;
+  border-color: #a83228;
+}
+.account #settings-tab {
+  display: block;
+  color: #fff;
+  font-weight: 600;
+  padding: 0;
+  margin: 4px 0;
+}
+@media (max-width: 700px) {
+  .settings-grid,
+  .settings-facts {
+    grid-template-columns: 1fr;
+  }
+}
