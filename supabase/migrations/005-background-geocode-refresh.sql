@@ -143,11 +143,7 @@ CREATE OR REPLACE FUNCTION nc_private.refresh_due_geocodes (
   batch_size integer DEFAULT 10
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER
 SET
-  search_path = ''
-SET
-  http.curlopt_timeout_ms = '10000'
-SET
-  http.curlopt_connecttimeout_ms = '5000' AS $$
+  search_path = '' AS $$
 DECLARE
   api_key text;
   h record;
