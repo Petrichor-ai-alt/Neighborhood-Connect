@@ -19,6 +19,7 @@ const n2=(await db.query("insert into neighborhoods(slug,name) values('elsewhere
 const h2=(await db.query("insert into households(neighborhood_id,address,display_name,latitude,longitude) values($1,'2 Test Lane','Other home',41,-88) returning id",[n2])).rows[0].id;
 await db.query('insert into memberships(user_id,neighborhood_id,household_id) values($1,$2,$3)',[outsider,n2,h2]);
 const migration=fs.readFileSync(new URL('supabase/migrations/002-household-members.sql',root),'utf8');await db.exec(migration);await db.exec(migration);
+await db.exec(fs.readFileSync(new URL('supabase/migrations/003-household-photo-preference.sql',root),'utf8'));await db.exec(fs.readFileSync(new URL('supabase/migrations/003-household-photo-preference.sql',root),'utf8'));
 assert.equal((await db.query('select count(*)::int c from household_members')).rows[0].c,2);
 assert.equal((await db.query('select residents from households where id=$1',[h])).rows[0].residents,'Preserve this text');
 async function as(user,sql,params=[]){await db.exec('set role authenticated');await db.query("select set_config('request.user_id',$1,false)",[user]);try{return await db.query(sql,params);}finally{await db.exec('reset role');}}
@@ -35,6 +36,9 @@ await as(adult,'select accept_household_invite($1)',[token]);
 await denied(adult,'select accept_household_invite($1)',[token],/invalid or expired/);
 assert.equal((await db.query('select count(*)::int c from household_members where household_id=$1',[h])).rows[0].c,2);
 assert.equal((await db.query('select household_role from memberships where user_id=$1',[adult])).rows[0].household_role,'member');
+assert.equal((await as(adult,"update households set photo_preference='none' where id=$1 returning id",[h])).rows.length,0);
+await as(manager,"update households set photo_preference='none' where id=$1",[h]);
+await denied(manager,"update households set photo_preference='invalid' where id=$1",[h],/check constraint/);
 await denied(adult,"select save_household_member($1,null,'Bad')",[h],/manager/);
 assert.equal((await as(adult,"update households set bio='Unauthorized' where id=$1 returning id",[h])).rows.length,0);
 await denied(manager,"select save_household_member($1,$2,'Changed by manager')",[h,p],/cannot edit/);
