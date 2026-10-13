@@ -2257,3 +2257,35 @@ footer a {
   background: transparent;
   text-decoration: underline;
 }
+
+.request-location {
+  padding: 14px;
+  margin: 14px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f5f8f3;
+}
+.request-location p {
+  margin: 10px 0;
+  font-size: 12px;
+}
+.request-location a {
+  display: block;
+  margin-bottom: 14px;
+  color: var(--accent);
+  font-size: 12px;
+}
+.location-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 12px;
+}
+.location-confirmation input {
+  width: auto;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.coordinates input[readonly] {
+  background: #eef2e9;
+}

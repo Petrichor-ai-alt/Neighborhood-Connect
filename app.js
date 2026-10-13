@@ -171,6 +171,10 @@ async function load() {
     $('person-editor').replaceChildren();
     $('member-invite-output').replaceChildren();
     householdLoginRoles.clear();
+    clearTimeout(locationExpiryTimer);
+    requestLocations.clear();
+    attemptedRequestLookups.clear();
+    geocodingEnabled = false;
     [...$('profileform').elements].forEach((el) => {
       if (el.name) el.value = '';
     });
@@ -179,6 +183,8 @@ async function load() {
     show('auth', true);
     return;
   }
+  await loadGeocodingCapability(version);
+  if (version !== generation) return;
   neighborhood = checked(
     await db.from('neighborhoods').select('*').eq('slug', cfg.neighborhoodSlug).single(),
   );
@@ -229,6 +235,8 @@ async function load() {
       .eq('neighborhood_id', neighborhood.id)
       .order('display_name'),
   );
+  if (version !== generation) return;
+  await loadHouseholdLocations(version);
   if (version !== generation) return;
   await loadHouseholdMembers(version);
   if (version !== generation) return;
@@ -468,26 +476,40 @@ async function loadDirectoryPhotos(version) {
   }
 }
 let mapsPromise;
-async function loadMap() {
+async function ensureGoogleMaps() {
   if (!mapsPromise)
     mapsPromise = new Promise((resolve, reject) => {
-      window.ncMapsReady = resolve;
+      const timeout = setTimeout(() => {
+        mapsPromise = null;
+        reject(new Error('Google Maps timed out. Try again or enter coordinates manually.'));
+      }, 20000);
+      window.ncMapsReady = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
       window.gm_authFailure = () => {
-        notice(
-          'Google Maps could not authorize this website. Check billing, API enablement, and website restrictions.',
-          true,
+        clearTimeout(timeout);
+        mapsPromise = null;
+        reject(
+          new Error(
+            'Google Maps could not authorize this website. Check billing, API enablement, and website restrictions.',
+          ),
         );
       };
       const s = document.createElement('script');
       s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(cfg.googleMapsKey)}&libraries=marker&loading=async&callback=ncMapsReady`;
       s.onerror = () => {
+        clearTimeout(timeout);
         mapsPromise = null;
         reject(new Error('Map could not load. Directory cards still work.'));
       };
       document.head.append(s);
     });
+  return mapsPromise;
+}
+async function loadMap() {
   try {
-    await mapsPromise;
+    await ensureGoogleMaps();
     if (!map) {
       map = new google.maps.Map($('map'), {
         center: cfg.center,
@@ -552,6 +574,11 @@ function openPinPopup(h, marker, shouldFocus = true) {
 }
 function drawMarkers(rows) {
   closePinPopup();
+  const missing = rows.some((h) => !hasCurrentHouseholdLocation(h));
+  $('mapview').querySelector('.map-caption-help').textContent = missing
+    ? 'Some pins need an administrator location refresh'
+    : 'Select a pin to meet a household';
+  rows = rows.filter((h) => hasCurrentHouseholdLocation(h));
   markers.forEach((m) => (m.map = null));
   markers = rows.map((h) => {
     const pin = document.createElement('div');
@@ -602,7 +629,7 @@ async function detail(id) {
   await refreshHouseholdPhoto(id, version);
   if (version !== generation || !user) return;
   $('detail').innerHTML =
-    `<h2>${esc(h.display_name)}</h2>${householdImage(h, 'detail')}<p>${esc(h.address)}</p><p>${esc(h.residents)}</p><p>${esc(h.bio)}</p>${h.interests ? `<p><strong>Interests:</strong> ${esc(h.interests)}</p>` : ''}${h.email ? `<p><strong>Email:</strong> ${esc(h.email)}</p>` : ''}${h.phone ? `<p><strong>Phone:</strong> ${esc(h.phone)}</p>` : ''}<div class="photos">${urls.map((url) => `<figure><img src="${esc(url)}" alt="Household photo" loading="lazy"></figure>`).join('')}</div>${membersEnabled ? `<h3>Household members</h3><div class="member-grid">${memberCards(h.id)}</div>` : ''}<p><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.latitude + ',' + h.longitude)}">Open in Google Maps</a></p><button id="closedetail">Close profile</button>`;
+    `<h2>${esc(h.display_name)}</h2>${householdImage(h, 'detail')}<p>${esc(h.address)}</p><p>${esc(h.residents)}</p><p>${esc(h.bio)}</p>${h.interests ? `<p><strong>Interests:</strong> ${esc(h.interests)}</p>` : ''}${h.email ? `<p><strong>Email:</strong> ${esc(h.email)}</p>` : ''}${h.phone ? `<p><strong>Phone:</strong> ${esc(h.phone)}</p>` : ''}<div class="photos">${urls.map((url) => `<figure><img src="${esc(url)}" alt="Household photo" loading="lazy"></figure>`).join('')}</div>${membersEnabled ? `<h3>Household members</h3><div class="member-grid">${memberCards(h.id)}</div>` : ''}<p><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hasCurrentHouseholdLocation(h) ? h.latitude + ',' + h.longitude : h.address)}">Open in Google Maps</a></p><button id="closedetail">Close profile</button>`;
   wireMemberCards($('detail'));
   show('detail', true);
   $('closedetail').onclick = () => show('detail', false);
@@ -670,6 +697,7 @@ async function compress(file) {
   return blob;
 }
 async function loadRequests() {
+  const version = generation;
   const rows = checked(
     await db
       .from('access_requests')
@@ -678,11 +706,12 @@ async function loadRequests() {
       .eq('status', 'pending')
       .order('created_at'),
   );
+  if (version !== generation || membership?.role !== 'admin') return;
   $('requests').innerHTML = rows.length
     ? rows
         .map(
           (r) =>
-            `<form class="request" data-request="${r.id}"><h3>${esc(r.name)}</h3><p>${esc(r.address)}</p><label>Existing household<select name="household"><option value="">Create a new household</option>${households.map((h) => `<option value="${h.id}">${esc(h.display_name)} — ${esc(h.address)}</option>`).join('')}</select></label><div class="coordinates"><label>Latitude<input name="lat" type="number" step="any" min="-90" max="90"></label><label>Longitude<input name="lng" type="number" step="any" min="-180" max="180"></label></div><div class="actions"><button class="primary">Approve resident</button><button type="button" data-reject>Reject request</button></div></form>`,
+            `<form class="request" data-request="${r.id}"><h3>${esc(r.name)}</h3><p>${esc(r.address)}</p><label>Existing household<select name="household"><option value="">Create a new household</option>${households.map((h) => `<option value="${h.id}">${esc(h.display_name)} — ${esc(h.address)}</option>`).join('')}</select></label>${requestLocationControls(r)}<div class="coordinates"><label>Latitude<input name="lat" type="number" step="any" min="-90" max="90"></label><label>Longitude<input name="lng" type="number" step="any" min="-180" max="180"></label></div><div class="actions"><button class="primary">Approve resident</button><button type="button" data-reject>Reject request</button></div></form>`,
         )
         .join('')
     : '<p>No pending requests. You’re all caught up.</p>';
@@ -697,13 +726,25 @@ async function loadRequests() {
           if (!existing && (!data.get('lat') || !data.get('lng')))
             throw new Error('Enter verified coordinates for the new household.');
           checked(
-            await db.rpc('review_request', {
-              request_id: f.dataset.request,
-              approve: true,
-              lat: existing ? null : Number(data.get('lat')),
-              lng: existing ? null : Number(data.get('lng')),
-              existing_household: existing || null,
-            }),
+            await db.rpc(
+              geocodingEnabled ? 'review_geocoded_request' : 'review_request',
+              geocodingEnabled
+                ? {
+                    request_id: f.dataset.request,
+                    approve: true,
+                    existing_household: existing || null,
+                    manual_lat: existing ? null : Number(data.get('lat')),
+                    manual_lng: existing ? null : Number(data.get('lng')),
+                    use_google: !f.elements.manual.checked,
+                  }
+                : {
+                    request_id: f.dataset.request,
+                    approve: true,
+                    lat: existing ? null : Number(data.get('lat')),
+                    lng: existing ? null : Number(data.get('lng')),
+                    existing_household: existing || null,
+                  },
+            ),
           );
           await load();
           view('admin');
@@ -714,12 +755,16 @@ async function loadRequests() {
         run(async () => {
           if (!confirm('Reject this access request?')) return;
           checked(
-            await db.rpc('review_request', { request_id: f.dataset.request, approve: false }),
+            await db.rpc(geocodingEnabled ? 'review_geocoded_request' : 'review_request', {
+              request_id: f.dataset.request,
+              approve: false,
+            }),
           );
           await loadRequests();
           notice('Request rejected.');
         });
     });
+  await prepareRequestLocations(rows, version);
 }
 $('authform').onsubmit = (e) => {
   e.preventDefault();
@@ -779,16 +824,37 @@ $('signout').onclick = () =>
 $('joinform').onsubmit = (e) => {
   e.preventDefault();
   run(async () => {
+    const version = generation;
     const f = new FormData(e.target);
-    checked(
-      await db.rpc('request_access', {
-        neighborhood_slug: cfg.neighborhoodSlug,
-        resident_name: f.get('name'),
-        household_address: f.get('address'),
-      }),
-    );
-    notice('Request submitted.');
-    await load();
+    const button = e.target.querySelector('button');
+    button.disabled = true;
+    try {
+      checked(
+        await db.rpc('request_access', {
+          neighborhood_slug: cfg.neighborhoodSlug,
+          resident_name: f.get('name'),
+          household_address: f.get('address'),
+        }),
+      );
+      let located = false;
+      if (geocodingEnabled) {
+        notice('Request submitted. Finding the proposed house location…');
+        try {
+          located = await saveSignupLocation(f.get('address'), version);
+        } catch (error) {
+          /* A failed lookup must not block a resident's request. */
+        }
+      }
+      if (version !== generation) return;
+      await load();
+      notice(
+        located
+          ? 'Request submitted with a proposed house pin. An administrator will verify it.'
+          : 'Request submitted. The administrator can look up or enter your location during review.',
+      );
+    } finally {
+      button.disabled = false;
+    }
   });
 };
 $('refresh').onclick = () => run(load);

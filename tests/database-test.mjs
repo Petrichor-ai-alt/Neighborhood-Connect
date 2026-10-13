@@ -57,6 +57,15 @@ await db.exec(
 await db.exec(
   fs.readFileSync(new URL('supabase/migrations/003-household-photo-preference.sql', root), 'utf8'),
 );
+// Embedded PostgreSQL has no pg_cron extension. Exercise cache expiry/cleanup directly.
+const geocodeMigration = fs
+  .readFileSync(new URL('supabase/migrations/004-address-geocoding.sql', root), 'utf8')
+  .replace(
+    /-- BEGIN SUPABASE CRON[\s\S]*?-- END SUPABASE CRON/,
+    '-- Cron schedule is tested in the deployed Supabase project.',
+  );
+await db.exec(geocodeMigration);
+await db.exec(geocodeMigration);
 assert.equal((await db.query('select count(*)::int c from household_members')).rows[0].c, 2);
 assert.equal(
   (await db.query('select residents from households where id=$1', [h])).rows[0].residents,
@@ -193,5 +202,118 @@ assert.equal(
 );
 console.log(
   'PASS: migration/repeat, preserved data, RLS isolation, manager/member editing, invitation claim/replay/replacement/cancel, private photos, login revocation, new approval.',
+);
+const lookupUser = '00000000-0000-0000-0000-000000000007';
+await db.query(
+  "insert into auth.users(id,email,email_confirmed_at) values($1,'lookup@example.test',now())",
+  [lookupUser],
+);
+await db.query(
+  "insert into access_requests(user_id,neighborhood_id,name,address) values($1,$2,'Lookup Person','4 Test Lane')",
+  [lookupUser, n],
+);
+const lookupRequest = (
+  await db.query('select id from access_requests where user_id=$1', [lookupUser])
+).rows[0].id;
+await as(
+  lookupUser,
+  'select save_request_geocode($1,41.75::double precision,-88.09::double precision)',
+  [lookupRequest],
+);
+assert.equal((await as(lookupUser, 'select * from geocoded_locations')).rows.length, 1);
+assert.equal((await as(wrong, 'select * from geocoded_locations')).rows.length, 0);
+await denied(
+  wrong,
+  'select save_request_geocode($1,41::double precision,-88::double precision)',
+  [lookupRequest],
+  /Request owner/,
+);
+await denied(
+  lookupUser,
+  'select review_geocoded_request($1,true)',
+  [lookupRequest],
+  /Administrator/,
+);
+await denied(
+  lookupUser,
+  'update geocoded_locations set latitude=42 where request_id=$1',
+  [lookupRequest],
+  /permission denied/,
+);
+await as(manager, 'select review_geocoded_request($1,true)', [lookupRequest]);
+const locatedHousehold = (
+  await db.query('select household_id from memberships where user_id=$1', [lookupUser])
+).rows[0].household_id;
+const storedHousehold = (
+  await db.query('select latitude,longitude,location_source from households where id=$1', [
+    locatedHousehold,
+  ])
+).rows[0];
+assert.equal(storedHousehold.latitude, null);
+assert.equal(storedHousehold.longitude, null);
+assert.equal(storedHousehold.location_source, 'google');
+assert.equal(
+  (
+    await as(lookupUser, 'select * from geocoded_locations where household_id=$1', [
+      locatedHousehold,
+    ])
+  ).rows.length,
+  1,
+);
+assert.equal(
+  (await as(outsider, 'select * from geocoded_locations where household_id=$1', [locatedHousehold]))
+    .rows.length,
+  0,
+);
+await denied(
+  lookupUser,
+  'select refresh_household_geocode($1,41::double precision,-88::double precision)',
+  [locatedHousehold],
+  /Administrator/,
+);
+await denied(
+  manager,
+  'select refresh_household_geocode($1,41::double precision,-88::double precision)',
+  [h],
+  /Manually verified/,
+);
+await db.query(
+  "update geocoded_locations set geocoded_at=now()-interval '30 days',expires_at=now()-interval '1 day' where household_id=$1",
+  [locatedHousehold],
+);
+assert.equal(
+  (
+    await as(lookupUser, 'select * from geocoded_locations where household_id=$1', [
+      locatedHousehold,
+    ])
+  ).rows.length,
+  0,
+);
+await db.query('select nc_private.purge_expired_geocodes()');
+assert.equal(
+  (await db.query('select * from geocoded_locations where household_id=$1', [locatedHousehold]))
+    .rows.length,
+  0,
+);
+await as(
+  manager,
+  'select refresh_household_geocode($1,41.751::double precision,-88.091::double precision)',
+  [locatedHousehold],
+);
+assert.equal(
+  (
+    await as(lookupUser, 'select * from geocoded_locations where household_id=$1', [
+      locatedHousehold,
+    ])
+  ).rows.length,
+  1,
+);
+assert.equal(
+  (await db.query('select location_source from households where id=$1', [h])).rows[0]
+    .location_source,
+  'manual',
+);
+console.log(
+  'PASS: geocoding migration/repeat, pending candidate privacy, administrator-only approval/refresh, expiring cache, hidden expired coordinates, cleanup, renewal, preserved manual locations.',
 );
 await db.close();

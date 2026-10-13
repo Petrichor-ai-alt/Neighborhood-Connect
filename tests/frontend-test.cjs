@@ -3,7 +3,13 @@ const fs = require('fs'),
   assert = require('assert/strict');
 const { parseHTML } = require('linkedom');
 const root = require('node:path').resolve(__dirname, '..') + '/';
-async function setup({ account = 'manager', migrated = true, signed = true } = {}) {
+async function setup({
+  account = 'manager',
+  migrated = true,
+  signed = true,
+  approved = true,
+  geocoding = false,
+} = {}) {
   const { window, document } = parseHTML(fs.readFileSync(root + 'index.html', 'utf8'));
   Object.defineProperty(window.HTMLSelectElement.prototype, 'value', {
     configurable: true,
@@ -34,6 +40,8 @@ async function setup({ account = 'manager', migrated = true, signed = true } = {
     el.focus = () => {};
     el.reportValidity = () => true;
   }
+  const requests = [];
+  const calls = [];
   const people = [
     {
       id: 'person1',
@@ -134,7 +142,10 @@ async function setup({ account = 'manager', migrated = true, signed = true } = {
                 ? homes
                 : table === 'household_members'
                   ? people
-                  : [];
+                  : table === 'access_requests'
+                    ? requests
+                    : [];
+        if (table === 'memberships' && !approved) rows = [];
         if (table === 'household_members') {
           schemaCalls++;
           if (!migrated)
@@ -171,6 +182,19 @@ async function setup({ account = 'manager', migrated = true, signed = true } = {
       },
     },
     rpc: async (name, args) => {
+      calls.push({ name, args });
+      if (name === 'geocoding_ready') return { data: geocoding };
+      if (name === 'request_access') {
+        requests.push({
+          id: 'request1',
+          user_id: account,
+          neighborhood_id: 'n1',
+          name: args.resident_name,
+          address: args.household_address,
+          status: 'pending',
+        });
+        return { data: null };
+      }
       if (name === 'household_login_roles')
         return {
           data: [
@@ -239,15 +263,17 @@ async function setup({ account = 'manager', migrated = true, signed = true } = {
     console,
     confirm: () => true,
     setTimeout,
+    clearTimeout,
     crypto: require('crypto').webcrypto,
     navigator: { clipboard: { writeText: async () => {} } },
   });
+  vm.runInContext(fs.readFileSync(root + 'geocoding.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'household-photos.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'members.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'app.js', 'utf8').replace('\nrun(load);', ''), ctx);
   vm.runInContext('loadMap=async()=>{}', ctx);
   await vm.runInContext('load()', ctx);
-  return { ctx, document, people, getSchemaCalls: () => schemaCalls };
+  return { ctx, document, people, calls, requests, getSchemaCalls: () => schemaCalls };
 }
 (async () => {
   let t = await setup({ signed: false });
@@ -325,6 +351,144 @@ async function setup({ account = 'manager', migrated = true, signed = true } = {
   assert.equal(vm.runInContext('householdPhoto(households[0])', photos.ctx), null);
   console.log(
     'PASS: photo priority, explicit Street View, no-photo choice, attributed rendering, safe avatar, missing-image fallback, pre-migration fallback.',
+  );
+  const geo = await setup();
+  geo.ctx.geocodeResults = [
+    {
+      address_components: [{ types: ['street_number'] }, { types: ['route'] }],
+      geometry: { location_type: 'ROOFTOP', location: { lat: () => 41, lng: () => -88 } },
+    },
+  ];
+  geo.ctx.google = {
+    maps: {
+      Geocoder: class {
+        async geocode() {
+          return { results: geo.ctx.geocodeResults };
+        }
+      },
+      LatLngBounds: class {},
+    },
+  };
+  vm.runInContext('ensureGoogleMaps=async()=>{};cfg.center={lat:41,lng:-88}', geo.ctx);
+  const found = await vm.runInContext("geocodeAddress('1 Test Lane')", geo.ctx);
+  assert.equal(found.latitude, 41);
+  assert.equal(found.longitude, -88);
+  geo.ctx.geocodeResults = [{ ...geo.ctx.geocodeResults[0], partial_match: true }];
+  await assert.rejects(
+    vm.runInContext("geocodeAddress('Partial address')", geo.ctx),
+    /complete address match/,
+  );
+  geo.ctx.geocodeResults = [];
+  await assert.rejects(
+    vm.runInContext("geocodeAddress('Missing address')", geo.ctx),
+    /complete address match/,
+  );
+  geo.ctx.geocodeResults = [
+    {
+      address_components: [{ types: ['street_number'] }, { types: ['route'] }],
+      geometry: { location_type: 'APPROXIMATE', location: { lat: () => 41, lng: () => -88 } },
+    },
+  ];
+  await assert.rejects(
+    vm.runInContext("geocodeAddress('Approximate')", geo.ctx),
+    /rather than a house/,
+  );
+  geo.ctx.geocodeResults[0].geometry.location_type = 'ROOFTOP';
+  geo.ctx.geocodeResults[0].geometry.location.lat = () => 42;
+  await assert.rejects(
+    vm.runInContext("geocodeAddress('Far away')", geo.ctx),
+    /outside the neighborhood area/,
+  );
+  vm.runInContext(
+    "households[0].location_source='google';applyHouseholdLocations([{household_id:'home1',latitude:41.1,longitude:-88.1,expires_at:new Date(Date.now()-1000).toISOString()}])",
+    geo.ctx,
+  );
+  assert.equal(vm.runInContext('households[0].latitude', geo.ctx), null);
+  vm.runInContext(
+    "applyHouseholdLocations([{household_id:'home1',latitude:41,longitude:-88,expires_at:new Date(Date.now()+10000).toISOString()}])",
+    geo.ctx,
+  );
+  assert.equal(vm.runInContext('hasCurrentHouseholdLocation(households[0])', geo.ctx), true);
+  vm.runInContext(
+    'households[0].location_expires_at=new Date(Date.now()-1000).toISOString();expireLocalLocations()',
+    geo.ctx,
+  );
+  assert.equal(vm.runInContext('households[0].latitude', geo.ctx), null);
+  const controls = geo.document.createElement('form');
+  controls.dataset.request = 'test-request';
+  controls.innerHTML =
+    vm.runInContext('geocodingEnabled=true;requestLocationControls({})', geo.ctx) +
+    `<select name="household"><option value="">New home</option><option value="home1">Existing home</option></select><div class="coordinates"><input name="lat"><input name="lng"></div>`;
+  geo.document.getElementById('requests').append(controls);
+  geo.ctx.formForTest = controls;
+  vm.runInContext(
+    "requestLocations.set('test-request',{latitude:41,longitude:-88});formForTest.elements.manual.checked=false;fillRequestLocation(formForTest)",
+    geo.ctx,
+  );
+  assert.equal(controls.elements.lat.value, '41');
+  assert.equal(controls.elements.verified.required, true);
+  assert.equal(controls.querySelector('[data-location-link]').hidden, false);
+  controls.elements.household.value = 'home1';
+  vm.runInContext('fillRequestLocation(formForTest)', geo.ctx);
+  assert.equal(controls.querySelector('.coordinates').hidden, true);
+  assert.equal(controls.elements.verified.required, false);
+  console.log(
+    'PASS: exact house lookup, partial/missing/coarse/far-away rejection, fresh/expired positions, reviewed candidate fields, existing-household reuse controls.',
+  );
+  const signup = await setup({ account: 'applicant', approved: false, geocoding: true });
+  signup.ctx.google = {
+    maps: {
+      Geocoder: class {
+        async geocode() {
+          return {
+            results: [
+              {
+                address_components: [{ types: ['street_number'] }, { types: ['route'] }],
+                geometry: { location_type: 'ROOFTOP', location: { lat: () => 41, lng: () => -88 } },
+              },
+            ],
+          };
+        }
+      },
+      LatLngBounds: class {},
+    },
+  };
+  vm.runInContext('ensureGoogleMaps=async()=>{}', signup.ctx);
+  signup.document.querySelector('#joinform [name=name]').value = 'New Resident';
+  signup.document.querySelector('#joinform [name=address]').value = '1 Test Lane';
+  signup.document
+    .getElementById('joinform')
+    .onsubmit({ preventDefault() {}, target: signup.document.getElementById('joinform') });
+  await new Promise(setImmediate);
+  assert.equal(signup.requests.length, 1);
+  assert.equal(
+    signup.calls.some(
+      (c) =>
+        c.name === 'save_request_geocode' && c.args.lat === 41 && c.args.request_id === 'request1',
+    ),
+    true,
+  );
+  assert.equal(signup.document.getElementById('pending').hidden, false);
+  assert.ok(signup.document.getElementById('notice').textContent.includes('proposed house pin'));
+  const failedSignup = await setup({ account: 'applicant2', approved: false, geocoding: true });
+  vm.runInContext(
+    "geocodeAddress=async()=>{throw new Error('Google unavailable')}",
+    failedSignup.ctx,
+  );
+  failedSignup.document.querySelector('#joinform [name=name]').value = 'Another Resident';
+  failedSignup.document.querySelector('#joinform [name=address]').value = '2 Test Lane';
+  failedSignup.document
+    .getElementById('joinform')
+    .onsubmit({ preventDefault() {}, target: failedSignup.document.getElementById('joinform') });
+  await new Promise(setImmediate);
+  assert.equal(failedSignup.requests.length, 1);
+  assert.equal(
+    failedSignup.calls.some((c) => c.name === 'save_request_geocode'),
+    false,
+  );
+  assert.equal(failedSignup.document.getElementById('pending').hidden, false);
+  console.log(
+    'PASS: signup automatically saves proposed coordinates; lookup failures preserve the pending access request.',
   );
   const pins = await setup();
   const windows = [];
