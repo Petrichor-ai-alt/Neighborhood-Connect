@@ -4,7 +4,7 @@ const db=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseKey);
 const $=id=>document.getElementById(id);
 const branding=cfg.branding||{};
 let neighborhoodName=branding.name||'Your neighborhood';
-$('brand-neighborhood').textContent=neighborhoodName;
+$('brand-neighborhood').textContent=neighborhoodName;$('mobile-neighborhood').textContent=neighborhoodName;
 $('brand-location').textContent=branding.location||'';
 $('footer-neighborhood').textContent=` / ${neighborhoodName}`;
 $('join-heading').textContent=`Join ${neighborhoodName}`;
@@ -12,11 +12,11 @@ $('page-eyebrow').textContent=`${neighborhoodName} · Your neighborhood communit
 $('profile-audience').textContent=`Share what you’re comfortable sharing. Approved ${neighborhoodName} residents can see this profile.`;
 $('map').setAttribute('aria-label',`${neighborhoodName} household map`);
 if(branding.areaDescription)$('join').querySelector('p').textContent=branding.areaDescription;
-if(branding.signImage){$('neighborhood-sign').src=new URL(branding.signImage,cfg.authRedirectUrl).href;$('neighborhood-sign').alt=`${neighborhoodName} neighborhood sign`;}
+if(branding.signImage)document.querySelectorAll('[data-neighborhood-sign]').forEach(img=>{img.src=new URL(branding.signImage,cfg.authRedirectUrl).href;img.alt=`${neighborhoodName} neighborhood sign`;});
 if(branding.favicon)document.querySelector('link[rel="icon"]').href=new URL(branding.favicon,cfg.authRedirectUrl).href;
 document.title=`Neighborhood Connect · ${neighborhoodName}`;
 let user,neighborhood,membership,households=[],map,markers=[],generation=0;
-let selectedFilter='all';
+let selectedFilter='all',greetingName='';
 const directoryPhotos=new Map();
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notice(message,error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);}
@@ -25,22 +25,23 @@ async function run(fn){try{await fn();}catch(e){notice(e.message||'Something wen
 function show(id,visible){$(id).hidden=!visible;}
 function view(id){
  if(!membership||(id==='admin'&&membership.role!=='admin'))return;
- ['browse','mapview','profile','admin'].forEach(x=>show(x,x===id));
+ ['overview','browse','mapview','profile','admin'].forEach(x=>show(x,x===id));
  document.querySelectorAll('[data-view]').forEach(b=>{const active=b.dataset.view===id;b.classList.toggle('active',active);if(active)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
- const pages={browse:['Meet your neighbors',`A private directory of ${neighborhoodName} households.`],mapview:[`Explore ${neighborhoodName}`,'Find the households around you. Select a pin to open a profile.'],profile:['Your household','A little introduction goes a long way. Share what makes your household yours.'],admin:['Your neighborhood dashboard','Review resident requests and help your community find its way in.']};
+ const pages={overview:[greetingName?`Welcome back, ${greetingName}`:'Welcome back',neighborhoodName],browse:['Meet your neighbors',`A private directory of ${neighborhoodName} households.`],mapview:[`Explore ${neighborhoodName}`,'Find the households around you. Select a pin to open a profile.'],profile:['Your household','A little introduction goes a long way. Share what makes your household yours.'],admin:['Your neighborhood dashboard','Review resident requests and help your community find its way in.']};
  $('page-eyebrow').textContent=`${neighborhoodName} · ${id==='admin'?'Administration':'Resident community'}`;
  $('page-title').textContent=pages[id][0];$('page-description').textContent=pages[id][1];
- const browsing=id==='browse'||id==='mapview';show('directory-search',browsing);show('directory-controls',browsing);show('detail',false);
- if(id==='mapview')run(async()=>{await loadMap();if(map&&membership&&!$('mapview').hidden){google.maps.event.trigger(map,'resize');drawMarkers(visibleHouseholds());}});
+ $('main-content').dataset.view=id;show('page-eyebrow',id!=='overview');const browsing=id==='browse'||id==='mapview';show('directory-search',browsing||id==='overview');show('directory-controls',browsing);show('detail',false);
+ if(id==='overview'||id==='mapview')run(async()=>{const host=id==='overview'?$('overview-map'):$('mapview').querySelector('.map-shell');host.prepend($('map'));await loadMap();if(map&&membership){const preview=!$('overview').hidden;map.setOptions({disableDefaultUI:preview,gestureHandling:preview?'none':'cooperative',clickableIcons:!preview});google.maps.event.trigger(map,'resize');drawMarkers(preview?households:visibleHouseholds());}});
+ const menuWasOpen=document.body.classList.contains('sidebar-open');closeSidebar(false);if(menuWasOpen){$('page-title').setAttribute('tabindex','-1');$('page-title').focus();}
 }
 async function load(){
  const version=++generation;
  const session=checked(await db.auth.getSession());user=session.session?.user;
  ['auth','join','pending','directory','topnav','admintab','account-role','account-avatar','directory-search','directory-controls'].forEach(x=>show(x,false));show('signout',!!user);
  $('page-eyebrow').textContent=`${neighborhoodName} · Your neighborhood community`;
- $('page-title').textContent='Meet your neighbors';
- $('page-description').textContent=`A private directory of ${neighborhoodName} households.`;
- if(!user){households=[];membership=null;directoryPhotos.clear();selectedFilter='all';markers.forEach(m=>m.map=null);markers=[];$('households').replaceChildren();$('detail').replaceChildren();$('myphotos').replaceChildren();$('requests').replaceChildren();show('detail',false);if(!$('recovery').hidden)return;show('auth',true);return;}
+ $('page-title').textContent='Welcome to your neighborhood';
+ $('page-description').textContent='Your private community, in one place.';show('page-eyebrow',true);
+ if(!user){households=[];membership=null;greetingName='';closeSidebar(false);directoryPhotos.clear();selectedFilter='all';markers.forEach(m=>m.map=null);markers=[];$('households').replaceChildren();$('detail').replaceChildren();$('myphotos').replaceChildren();$('requests').replaceChildren();show('detail',false);if(!$('recovery').hidden)return;show('auth',true);return;}
  neighborhood=checked(await db.from('neighborhoods').select('*').eq('slug',cfg.neighborhoodSlug).single());
  neighborhoodName=neighborhood.name;$('brand-neighborhood').textContent=neighborhoodName;$('join-heading').textContent=`Join ${neighborhoodName}`;$('footer-neighborhood').textContent=` / ${neighborhoodName}`;document.title=`Neighborhood Connect · ${neighborhoodName}`;
  membership=checked(await db.from('memberships').select('*').eq('user_id',user.id).eq('neighborhood_id',neighborhood.id).maybeSingle());
@@ -53,7 +54,10 @@ async function load(){
  }
  households=checked(await db.from('households').select('*').eq('neighborhood_id',neighborhood.id).order('display_name'));
  if(version!==generation)return;
- show('directory',true);show('topnav',true);show('admintab',membership.role==='admin');show('account-role',true);show('account-avatar',true);$('account-avatar').textContent=(user.email?.split('@')[0].replace(/[^a-z]/gi,'').slice(0,2)||'NC').toUpperCase();$('account-role').textContent=membership.role==='admin'?'Neighborhood admin':'Resident';$('map-caption-label').textContent=neighborhoodName;view('browse');render();fillProfile();
+ const ownRequest=checked(await db.from('access_requests').select('name').eq('user_id',user.id).eq('neighborhood_id',neighborhood.id).maybeSingle());
+ if(version!==generation)return;
+ greetingName=(user.user_metadata?.full_name||ownRequest?.name||'').trim().split(/\s+/)[0];
+ show('directory',true);show('topnav',true);show('admintab',membership.role==='admin');show('account-role',true);show('account-avatar',true);$('account-avatar').textContent=(user.email?.split('@')[0].replace(/[^a-z]/gi,'').slice(0,2)||'NC').toUpperCase();$('account-role').textContent=membership.role==='admin'?'Neighborhood admin':'Resident';$('map-caption-label').textContent=neighborhoodName;view('overview');render();fillProfile();renderOverview();
  await Promise.all([loadMyPhotos(),loadDirectoryPhotos(version),membership.role==='admin'?loadRequests():Promise.resolve()]);
 }
 function tags(h){return (h.interests||'').split(',').map(t=>t.trim()).filter(Boolean);}
@@ -82,7 +86,23 @@ function render(){
  }).join(''):'<div class="empty-state"><div class="empty-icon" aria-hidden="true">⌂</div><h3>No households found</h3><p>Try another search or filter.</p><button id="clear-filters">Clear search and filters</button></div>';
  $('households').querySelectorAll('[data-household]').forEach(b=>b.onclick=()=>run(()=>detail(b.dataset.household)));
  if($('clear-filters'))$('clear-filters').onclick=()=>{$('search').value='';selectedFilter='all';render();};
- if(map&&!$('mapview').hidden)drawMarkers(visible);
+ renderOverview();if(map&&(!$('mapview').hidden||!$('overview').hidden))drawMarkers(!$('overview').hidden?households:visible);
+}
+function renderOverview(){
+ if(!membership)return;
+ $('overview-count').textContent=`${households.length} household${households.length===1?'':'s'}`;
+ $('overview-privacy-title').textContent=`${neighborhoodName} residents only`;
+ $('overview-map-title').textContent=`Explore ${neighborhoodName}`;
+ $('overview-neighbor-description').textContent=`A few familiar faces in ${neighborhoodName}.`;
+ const h=households.find(h=>h.id===membership.household_id);if(!h)return;
+ const photo=directoryPhotos.get(h.id)?.url;
+ const houseIcon='<svg aria-hidden="true" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1"><path d="m3 10 9-7 9 7v11H3zM9 21v-7h6v7"/></svg>';
+ const gap=!h.interests?['Complete your profile','Add your interests to help neighbors get to know you.','Add your interests','interests']:!h.bio?['Introduce your household','Share a little about yourselves with your community.','Add an introduction','bio']:!photo?['Put a face to your household','Add a photo to make your profile feel more like home.','Add a photo','upload']:['Your household is ready','Keep your details up to date as things change.','Update profile','display_name'];
+ $('overview-household').innerHTML=`<div class="household-cover">${photo?`<img src="${esc(photo)}" alt="${esc(h.display_name)} household photo">`:`<div class="cover-placeholder">${houseIcon}<span>Your household photo goes here</span></div>`}</div><div class="household-identity">${photo?`<img class="overview-avatar" src="${esc(photo)}" alt="">`:`<span class="overview-avatar overview-initials" aria-hidden="true">${esc(initials(h))}</span>`}<div><h3>${esc(h.residents||h.display_name)}</h3><p>${esc(h.address)}</p><small>${h.residents?'Adult residents listed on your profile':'Your home in '+esc(neighborhoodName)}</small></div></div><div class="profile-prompt"><span class="prompt-icon" aria-hidden="true">✎</span><div><strong>${gap[0]}</strong><p>${gap[1]}</p></div><button id="overview-complete">${gap[2]}</button></div>`;
+ $('overview-complete').onclick=()=>{view('profile');const target=gap[3]==='upload'?$('upload'):$('profileform').elements[gap[3]];target?.focus();};
+ const neighbors=households.filter(n=>n.id!==h.id).slice(0,3);
+ $('overview-neighbors').innerHTML=neighbors.length?neighbors.map(n=>{const pic=directoryPhotos.get(n.id)?.url;const interest=tags(n)[0];return `<button class="neighbor-card" data-neighbor="${n.id}">${pic?`<img src="${esc(pic)}" alt="${esc(n.display_name)}" loading="lazy">`:`<span class="neighbor-placeholder" aria-hidden="true">${esc(initials(n))}</span>`}<span><strong>${esc(n.display_name)}</strong><small>${esc(n.address)}</small>${interest?`<span class="neighbor-tag">${esc(interest)}</span>`:''}</span></button>`;}).join(''):'<p class="neighbors-empty">Additional approved households will appear here as your directory grows.</p>';
+ $('overview-neighbors').querySelectorAll('[data-neighbor]').forEach(b=>b.onclick=()=>run(()=>detail(b.dataset.neighbor)));
 }
 async function refreshHouseholdPhoto(id,version=generation){
  try{const files=await photoList(id);const url=files.length?await photoUrl(`${id}/${files[0].name}`):null;if(version!==generation||!membership)return;if(url)directoryPhotos.set(id,{url});else directoryPhotos.delete(id);}
@@ -98,11 +118,11 @@ async function loadMap(){
  if(!mapsPromise)mapsPromise=new Promise((resolve,reject)=>{window.ncMapsReady=resolve;window.gm_authFailure=()=>{notice('Google Maps could not authorize this website. Check billing, API enablement, and website restrictions.',true);};const s=document.createElement('script');s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(cfg.googleMapsKey)}&libraries=marker&loading=async&callback=ncMapsReady`;s.onerror=()=>{mapsPromise=null;reject(new Error('Map could not load. Directory cards still work.'));};document.head.append(s);});
  try{await mapsPromise;if(!map)map=new google.maps.Map($('map'),{center:cfg.center,zoom:15,mapId:cfg.mapId,mapTypeControl:true,streetViewControl:false});render();}catch(e){notice(e.message,true);}
 }
-function drawMarkers(rows){markers.forEach(m=>m.map=null);markers=rows.map(h=>{const pin=document.createElement('div');pin.className='household-pin';pin.innerHTML='<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M3 11 12 3l9 8h-3v10h-5v-6h-2v6H6V11z"/></svg>';const m=new google.maps.marker.AdvancedMarkerElement({map,content:pin,position:{lat:h.latitude,lng:h.longitude},title:h.display_name});m.addListener('click',()=>run(()=>detail(h.id)));return m;});if(rows.length){const bounds=new google.maps.LatLngBounds();rows.forEach(h=>bounds.extend({lat:h.latitude,lng:h.longitude}));map.fitBounds(bounds);google.maps.event.addListenerOnce(map,'idle',()=>{if(map.getZoom()>17)map.setZoom(17);});}}
+function drawMarkers(rows){markers.forEach(m=>m.map=null);markers=rows.map(h=>{const pin=document.createElement('div');pin.className='household-pin';pin.innerHTML='<svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" aria-hidden="true"><path d="M3 11 12 3l9 8h-3v10h-5v-6h-2v6H6V11z"/></svg>';const m=new google.maps.marker.AdvancedMarkerElement({map,content:pin,position:{lat:h.latitude,lng:h.longitude},title:h.display_name});m.addListener('click',()=>run(()=>detail(h.id)));return m;});if(rows.length){const bounds=new google.maps.LatLngBounds();rows.forEach(h=>bounds.extend({lat:h.latitude,lng:h.longitude}));map.fitBounds(bounds);google.maps.event.addListenerOnce(map,'idle',()=>{const maxZoom=!$('overview').hidden?15:17;if(map.getZoom()>maxZoom)map.setZoom(maxZoom);});}}
 async function photoList(id){return checked(await db.storage.from('household-photos').list(id,{limit:100,sortBy:{column:'name',order:'asc'}})).filter(f=>f.id);}
 async function photoUrl(path){return checked(await db.storage.from('household-photos').createSignedUrl(path,300)).signedUrl;}
 async function detail(id){
- const version=generation;const h=households.find(x=>x.id===id);if(!h)return;
+ const version=generation;const h=households.find(x=>x.id===id);if(!h)return;if(!$('overview').hidden)view('browse');
  const files=await photoList(id);const urls=await Promise.all(files.map(f=>photoUrl(`${id}/${f.name}`)));
  if(version!==generation||!user)return;
  $('detail').innerHTML=`<h2>${esc(h.display_name)}</h2><p>${esc(h.address)}</p><p>${esc(h.residents)}</p><p>${esc(h.bio)}</p>${h.interests?`<p><strong>Interests:</strong> ${esc(h.interests)}</p>`:''}${h.email?`<p><strong>Email:</strong> ${esc(h.email)}</p>`:''}${h.phone?`<p><strong>Phone:</strong> ${esc(h.phone)}</p>`:''}<div class="photos">${urls.map(url=>`<figure><img src="${esc(url)}" alt="Household photo" loading="lazy"></figure>`).join('')}</div><p><a target="_blank" rel="noopener noreferrer" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(h.latitude+','+h.longitude)}">Open in Google Maps</a></p><button id="closedetail">Close profile</button>`;
@@ -125,12 +145,28 @@ $('passwordform').onsubmit=e=>{e.preventDefault();run(async()=>{checked(await db
 $('signout').onclick=()=>run(async()=>{checked(await db.auth.signOut());show('recovery',false);notice('Signed out.');await load();});
 $('joinform').onsubmit=e=>{e.preventDefault();run(async()=>{const f=new FormData(e.target);checked(await db.rpc('request_access',{neighborhood_slug:cfg.neighborhoodSlug,resident_name:f.get('name'),household_address:f.get('address')}));notice('Request submitted.');await load();});};
 $('refresh').onclick=()=>run(load);
-$('search').oninput=render;
+$('search').oninput=()=>{if(!$('overview').hidden&&$('search').value.trim())view('browse');render();};
 $('sort').onchange=render;
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>view(b.dataset.view));
 $('profileform').onsubmit=e=>{e.preventDefault();run(async()=>{const patch=Object.fromEntries(new FormData(e.target));const updated=checked(await db.from('households').update(patch).eq('id',membership.household_id).select().single());households=households.map(h=>h.id===updated.id?updated:h);render();notice('Household profile saved.');});};
 $('upload').onchange=()=>run(async()=>{const input=$('upload');const file=input.files[0];if(!file)return;input.disabled=true;try{const id=membership.household_id;if((await photoList(id)).length>=5)throw new Error('Your gallery has five photos. Delete one before adding another.');const blob=await compress(file);checked(await db.storage.from('household-photos').upload(`${id}/${Date.now()}-${crypto.randomUUID()}.jpg`,blob,{contentType:'image/jpeg',upsert:false}));await loadMyPhotos();await refreshHouseholdPhoto(id);render();notice('Photo uploaded privately.');}finally{input.disabled=false;input.value='';}});
+const mobileLayout=window.matchMedia('(max-width: 850px)');
+function closeSidebar(restoreFocus=true){
+ document.body.classList.remove('sidebar-open');$('menu-toggle').setAttribute('aria-expanded','false');show('sidebar-backdrop',false);
+ if(window.matchMedia('(max-width: 850px)').matches)$('site-sidebar').inert=true;
+ if(restoreFocus)$('menu-toggle').focus();
+}
+function openSidebar(){
+ $('site-sidebar').inert=false;document.body.classList.add('sidebar-open');$('menu-toggle').setAttribute('aria-expanded','true');show('sidebar-backdrop',true);
+ const first=$('topnav').hidden?$('sidebar-close'):$('topnav').querySelector('button:not([hidden])');first?.focus();
+}
+function syncSidebar(){closeSidebar(false);$('site-sidebar').inert=mobileLayout.matches;}
+$('menu-toggle').onclick=openSidebar;$('sidebar-close').onclick=()=>closeSidebar();$('sidebar-backdrop').onclick=()=>closeSidebar();
+$('overview-edit').onclick=()=>view('profile');$('overview-open-map').onclick=()=>view('mapview');$('overview-browse').onclick=()=>view('browse');
+mobileLayout.addEventListener('change',syncSidebar);syncSidebar();
+document.addEventListener('keydown',e=>{if(!document.body.classList.contains('sidebar-open'))return;if(e.key==='Escape')closeSidebar();if(e.key==='Tab'){const focusable=[...$('site-sidebar').querySelectorAll('a[href],button:not([hidden])')].filter(el=>!el.closest('[hidden]'));const first=focusable[0],last=focusable.at(-1);if(!first)return;if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 db.auth.onAuthStateChange((event)=>{if(event==='PASSWORD_RECOVERY'){show('recovery',true);show('auth',false);}if(event==='SIGNED_OUT')setTimeout(()=>run(load),0);});
 run(load);
+
 
 
