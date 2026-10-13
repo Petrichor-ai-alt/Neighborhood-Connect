@@ -1,16 +1,45 @@
 -- After creating your account in the website and verifying your email,
 -- replace all placeholders below. Run this in SQL Editor, not the website.
 -- A verified address and its coordinates are required; do not use guessed home pins.
-do $$
-declare u uuid; n uuid; h uuid; verified_lat double precision := null; verified_lng double precision := null;
-begin
- -- Replace null above with the verified latitude and longitude of your home.
- if verified_lat is null or verified_lng is null then raise exception 'Enter verified household coordinates before running'; end if;
- select id into u from auth.users where lower(email)=lower('YOUR_ACCOUNT_EMAIL');
- if u is null then raise exception 'Create your website account first'; end if;
- select id into n from public.neighborhoods where slug='burr-oaks';
- insert into public.households(neighborhood_id,address,display_name,latitude,longitude)
- values(n,'YOUR_FULL_ADDRESS','YOUR_HOUSEHOLD_NAME',verified_lat,verified_lng) returning id into h;
- insert into public.memberships(user_id,neighborhood_id,household_id,role) values(u,n,h,'admin');
- update public.access_requests set status='approved' where user_id=u and neighborhood_id=n;
-end $$;
+DO $$
+DECLARE
+  u uuid;
+  n uuid;
+  h uuid;
+  verified_lat double precision := NULL;
+  verified_lng double precision := NULL;
+BEGIN
+  -- Replace null above with the verified latitude and longitude of your home.
+  IF verified_lat IS NULL OR verified_lng IS NULL THEN
+    RAISE EXCEPTION 'Enter verified household coordinates before running';
+  END IF;
+  SELECT
+    id INTO u
+  FROM
+    auth.users
+  WHERE
+    lower(email) = lower('YOUR_ACCOUNT_EMAIL');
+  IF u IS NULL THEN
+    RAISE EXCEPTION 'Create your website account first';
+  END IF;
+  SELECT
+    id INTO n
+  FROM
+    public.neighborhoods
+  WHERE
+    slug = 'burr-oaks';
+  INSERT INTO public.households (neighborhood_id, address, display_name, latitude, longitude)
+    VALUES (n, 'YOUR_FULL_ADDRESS', 'YOUR_HOUSEHOLD_NAME', verified_lat, verified_lng)
+  RETURNING
+    id INTO h;
+  INSERT INTO public.memberships (user_id, neighborhood_id, household_id, role)
+    VALUES (u, n, h, 'admin');
+  UPDATE
+    public.access_requests
+  SET
+    status = 'approved'
+  WHERE
+    user_id = u
+    AND neighborhood_id = n;
+END
+$$;

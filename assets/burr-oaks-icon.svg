@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="2" y="2" width="60" height="60" rx="7" fill="#865044"/><path d="M18 3v58M33 3v58M48 3v58" stroke="#603b34" stroke-width="1" opacity=".45"/><rect x="6" y="6" width="52" height="52" rx="4" fill="none" stroke="#b68870" stroke-width="1"/><text x="32" y="44" text-anchor="middle" fill="#fff4df" font-family="Rockwell,Georgia,serif" font-weight="900" font-size="34" letter-spacing="-2">BO</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect x="2" y="2" width="60" height="60" rx="7" fill="#865044" />
+  <path d="M18 3v58M33 3v58M48 3v58" stroke="#603b34" stroke-width="1" opacity=".45" />
+  <rect x="6" y="6" width="52" height="52" rx="4" fill="none" stroke="#b68870" stroke-width="1" />
+  <text
+    x="32"
+    y="44"
+    text-anchor="middle"
+    fill="#fff4df"
+    font-family="Rockwell,Georgia,serif"
+    font-weight="900"
+    font-size="34"
+    letter-spacing="-2"
+  >
+    BO
+  </text>
+</svg>

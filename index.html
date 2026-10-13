@@ -1,15 +1,472 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#183b28"><title>Neighborhood Connect · Burr Oaks</title><link rel="icon" type="image/svg+xml" href="assets/burr-oaks-icon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="style.css?v=household-photos-1"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js" defer></script><script src="config.js" defer></script><script src="household-photos.js?v=household-photos-1" defer></script><script src="members.js?v=household-photos-1" defer></script><script src="app.js?v=household-photos-1" defer></script></head>
-<body><header class="mobile-header"><button id="menu-toggle" aria-label="Open navigation menu" aria-controls="site-sidebar" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><span>Neighborhood Connect<small id="mobile-neighborhood">Burr Oaks</small></span><img data-neighborhood-sign src="assets/burr-oaks-sign-cutout.png" alt="Burr Oaks sign" width="38" height="54"></header><button id="sidebar-backdrop" class="sidebar-backdrop" aria-label="Close navigation menu" hidden></button><aside id="site-sidebar" class="site-sidebar" aria-label="Neighborhood navigation"><button id="sidebar-close" class="sidebar-close" aria-label="Close navigation menu">×</button><a href="./" class="brand"><img id="neighborhood-sign" class="neighborhood-sign" data-neighborhood-sign src="assets/burr-oaks-sign-cutout.png" alt="Burr Oaks neighborhood sign" width="144" height="204" fetchpriority="high"><span class="app-name">Neighborhood Connect</span><span id="brand-neighborhood" class="community-name">Burr Oaks</span><span id="brand-location" class="community-location">Naperville, Illinois</span></a><nav id="topnav" class="tabs" aria-label="Neighborhood sections" hidden><button data-view="overview" class="active" aria-current="page"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z"/></svg><span>Overview</span></button><button data-view="browse"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3zM16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2"/></svg><span>Directory</span></button><button data-view="mapview"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16"/></svg><span>Map</span></button><button data-view="profile"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v11H3zM9 21v-7h6v7"/></svg><span>My household</span></button><button data-view="person" id="persontab" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="7" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/></svg><span>My profile</span></button><button data-view="admin" id="admintab" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4v6c0 4-4 7-8 9-4-2-8-5-8-9V7z"/><path d="m8 12 3 3 5-6"/></svg><span>Admin</span></button></nav><div class="account"><span id="account-avatar" class="account-avatar" hidden aria-hidden="true">NC</span><div><span id="account-role" class="account-role" hidden></span><button id="signout" hidden>Sign out</button></div></div></aside><main id="main-content"><section class="intro" aria-label="Neighborhood welcome"><div><span id="page-eyebrow" class="eyebrow">BURR OAKS · PRIVATE RESIDENT COMMUNITY</span><h1 id="page-title">Welcome to your neighborhood</h1><p id="page-description">Your private community, in one place.</p></div><label id="directory-search" class="search" hidden><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><span class="sr-only">Search households</span><input id="search" type="search" placeholder="Search by name, address, or interests…"></label></section><div id="notice" role="status" aria-live="polite"></div>
-<section id="auth" class="panel auth"><h2>Welcome, neighbor</h2><p>Sign in to your account or join the neighborhood. Directory access requires resident approval.</p><form id="authform"><label>Email<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" minlength="8" required></label><div class="actions"><button class="primary" type="submit">Sign in</button><button id="signup" type="button">Create account</button></div><button id="reset" class="textbutton" type="button">Forgot password?</button></form></section>
-<section id="recovery" class="panel" hidden><h2>Set a new password</h2><form id="passwordform"><label>New password<input name="password" type="password" minlength="8" autocomplete="new-password" required></label><button class="primary">Save password</button></form></section>
-<section id="join" class="panel" hidden><h2 id="join-heading">Join Burr Oaks</h2><p>We’re starting with Pin Oak Ln, Hemlock Ln, Blackthorne Ln, and the portions of Indiana Ave and the local College Rd shown in the neighborhood map. The nearby major College Rd is excluded. An administrator verifies every address.</p><form id="joinform"><label>Your name<input name="name" required maxlength="100"></label><label>Full household address<input name="address" required maxlength="250" placeholder="Street number, street, Naperville, IL, ZIP"></label><button class="primary">Request resident access</button></form></section>
-<section id="pending" class="panel" hidden><h2 id="pending-title">You're on the list</h2><p id="pending-description">Your request is awaiting administrator review. Household profiles and photos remain private until you’re approved.</p><button id="refresh">Check approval status</button></section>
-<section id="invite-panel" class="panel" hidden><h2>Join your household</h2><p>A household manager can give you an invitation code. Sign in with the email they invited, then enter the code to link your existing member profile.</p><form id="inviteform"><label>Invitation code<input id="invite-code" name="code" autocomplete="off" required maxlength="64" pattern="[a-f0-9]{64}"></label><button class="primary">Accept invitation</button><button id="dismiss-invite" type="button">Dismiss</button></form></section><section id="directory" hidden>
-<section id="overview"><div class="community-strip"><div><span class="stat-icon" aria-hidden="true"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3zM16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2"/></svg></span><span><strong id="overview-count">Your community</strong><small>Private resident directory</small></span></div><div><span class="stat-icon" aria-hidden="true"><svg aria-hidden="true" viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 8 4v6c0 4-4 7-8 9-4-2-8-5-8-9V7z"/><path d="m8 12 3 3 5-6"/></svg></span><span><strong id="overview-privacy-title">Residents only</strong><small>Household information is only visible to approved neighbors.</small></span></div></div><div class="overview-top"><section class="overview-panel"><div class="module-heading"><h2>Your household</h2><button id="overview-edit" class="primary">Edit profile</button></div><div id="overview-household"></div></section><section class="overview-panel"><div class="module-heading"><h2 id="overview-map-title">Explore Burr Oaks</h2></div><div id="overview-map" aria-label="Neighborhood map preview"></div><button id="overview-open-map" class="text-link">Open map <span aria-hidden="true">→</span></button></section></div><section class="overview-panel neighbor-module"><div class="module-heading"><div><h2>Meet your neighbors</h2><p id="overview-neighbor-description">A few familiar faces in your community.</p></div><button id="overview-browse" class="text-link">Browse directory <span aria-hidden="true">→</span></button></div><div id="overview-neighbors" class="overview-neighbors"></div></section></section>
-<div id="directory-controls" class="directory-toolbar"><label class="sort"><span>Sort by</span><select id="sort"><option value="name">Household name (A–Z)</option><option value="address">Street address</option></select></label><div id="filters" class="filters" aria-label="Household filters"></div></div><div id="browse"><div class="directory-summary"><p id="count"></p><span>Shared by your neighbors</span></div><div id="households" class="cards"></div></div><div id="mapview" hidden><div class="map-shell"><div id="map" aria-label="Burr Oaks household map"></div><div class="map-caption"><span class="map-status-dot"></span><span id="map-caption-label">Your neighborhood</span><span class="map-caption-help">Select a pin to meet a household</span></div></div></div><section id="detail" class="panel household-detail" hidden></section>
-<div id="profile" class="panel" hidden><h2>Make yourselves at home</h2><p id="profile-audience">Share what you’re comfortable sharing. Approved residents of your neighborhood can see this profile.</p><p id="household-permission" class="member-note" hidden></p><form id="profileform"><p id="myaddress"></p><label>Household display name<input name="display_name" required maxlength="100" placeholder="The Hart household"></label><label>Residents summary (optional)<input name="residents" maxlength="300" placeholder="First names or full names — your choice"></label><label>Contact email (optional)<input name="email" type="email" maxlength="200"></label><label>Phone (optional)<input name="phone" type="tel" maxlength="40"></label><label>Interests<input name="interests" maxlength="500" placeholder="Gardening, hiking, board games…"></label><label>About your household<textarea name="bio" rows="4" maxlength="1500"></textarea></label><button class="primary">Save profile</button></form><hr><h3>Household photos</h3><section id="house-photo-settings" hidden><form id="photo-preference-form"><label>Main house image<select id="photo-preference"><option value="auto">My uploaded photo (Street View until I add one)</option><option value="streetview">Use Google Street View</option><option value="none">Show no house photo</option></select></label><button id="save-photo-preference" class="primary">Save photo preference</button></form><p id="house-photo-status"></p><div id="house-photo-preview"></div></section><p>Upload a main photo and a small gallery. Uploading a photo makes it your main image. The first uploaded photo is used. Images are resized before upload and stored privately.</p><label>Add a photo<input id="upload" type="file" accept="image/jpeg,image/png,image/webp"></label><div id="myphotos" class="photos"></div><section id="household-members" class="member-section" hidden><hr><div class="module-heading"><div><h3>Household members</h3><p>Each person can have a profile. A separate login is optional.</p></div><button id="add-member" class="primary">Add member</button></div><div id="my-members" class="member-grid"></div><div id="member-invite-output" class="member-invite-output" hidden></div></section></div><section id="person" class="panel" hidden><div id="person-editor"></div></section>
-<div id="admin" class="panel" hidden><h2>Resident approvals</h2><p>Verify that each address is inside the agreed Burr Oaks area. For a new household, enter its latitude and longitude from Google Maps. For an existing household, select it instead.</p><div id="requests"></div></div></section></main><footer><div>Neighborhood Connect <span id="footer-neighborhood" class="footer-neighborhood"> / Burr Oaks</span></div><span>Neighbors, connected. <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></span></footer></body></html>
-
-
-
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#183b28" />
+    <title>Neighborhood Connect · Burr Oaks</title>
+    <link rel="icon" type="image/svg+xml" href="assets/burr-oaks-icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css?v=household-photos-1" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
+      defer
+    ></script>
+    <script src="config.js" defer></script>
+    <script src="household-photos.js?v=household-photos-1" defer></script>
+    <script src="members.js?v=household-photos-1" defer></script>
+    <script src="app.js?v=household-photos-1" defer></script>
+  </head>
+  <body>
+    <header class="mobile-header">
+      <button
+        id="menu-toggle"
+        aria-label="Open navigation menu"
+        aria-controls="site-sidebar"
+        aria-expanded="false"
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          width="21"
+          height="21"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg></button
+      ><span>Neighborhood Connect<small id="mobile-neighborhood">Burr Oaks</small></span
+      ><img
+        data-neighborhood-sign
+        src="assets/burr-oaks-sign-cutout.png"
+        alt="Burr Oaks sign"
+        width="38"
+        height="54"
+      />
+    </header>
+    <button
+      id="sidebar-backdrop"
+      class="sidebar-backdrop"
+      aria-label="Close navigation menu"
+      hidden
+    ></button>
+    <aside id="site-sidebar" class="site-sidebar" aria-label="Neighborhood navigation">
+      <button id="sidebar-close" class="sidebar-close" aria-label="Close navigation menu">×</button
+      ><a href="./" class="brand"
+        ><img
+          id="neighborhood-sign"
+          class="neighborhood-sign"
+          data-neighborhood-sign
+          src="assets/burr-oaks-sign-cutout.png"
+          alt="Burr Oaks neighborhood sign"
+          width="144"
+          height="204"
+          fetchpriority="high"
+        /><span class="app-name">Neighborhood Connect</span
+        ><span id="brand-neighborhood" class="community-name">Burr Oaks</span
+        ><span id="brand-location" class="community-location">Naperville, Illinois</span></a
+      >
+      <nav id="topnav" class="tabs" aria-label="Neighborhood sections" hidden>
+        <button data-view="overview" class="active" aria-current="page">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m3 10 9-7 9 7v11h-6v-7H9v7H3z" /></svg
+          ><span>Overview</span></button
+        ><button data-view="browse">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="9" cy="7" r="3" />
+            <path d="M3 21v-3a6 6 0 0 1 12 0v3zM16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2" /></svg
+          ><span>Directory</span></button
+        ><button data-view="mapview">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2zM9 3v16M15 5v16" /></svg
+          ><span>Map</span></button
+        ><button data-view="profile">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m3 10 9-7 9 7v11H3zM9 21v-7h6v7" /></svg
+          ><span>My household</span></button
+        ><button data-view="person" id="persontab" hidden>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+          >
+            <circle cx="12" cy="7" r="4" />
+            <path d="M4 21v-2a8 8 0 0 1 16 0v2" /></svg
+          ><span>My profile</span></button
+        ><button data-view="admin" id="admintab" hidden>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m12 3 8 4v6c0 4-4 7-8 9-4-2-8-5-8-9V7z" />
+            <path d="m8 12 3 3 5-6" /></svg
+          ><span>Admin</span>
+        </button>
+      </nav>
+      <div class="account">
+        <span id="account-avatar" class="account-avatar" hidden aria-hidden="true">NC</span>
+        <div>
+          <span id="account-role" class="account-role" hidden></span
+          ><button id="signout" hidden>Sign out</button>
+        </div>
+      </div>
+    </aside>
+    <main id="main-content">
+      <section class="intro" aria-label="Neighborhood welcome">
+        <div>
+          <span id="page-eyebrow" class="eyebrow">BURR OAKS · PRIVATE RESIDENT COMMUNITY</span>
+          <h1 id="page-title">Welcome to your neighborhood</h1>
+          <p id="page-description">Your private community, in one place.</p>
+        </div>
+        <label id="directory-search" class="search" hidden
+          ><svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.7"
+          >
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4 4" /></svg
+          ><span class="sr-only">Search households</span
+          ><input id="search" type="search" placeholder="Search by name, address, or interests…"
+        /></label>
+      </section>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <section id="auth" class="panel auth">
+        <h2>Welcome, neighbor</h2>
+        <p>
+          Sign in to your account or join the neighborhood. Directory access requires resident
+          approval.
+        </p>
+        <form id="authform">
+          <label>Email<input name="email" type="email" autocomplete="email" required /></label
+          ><label
+            >Password<input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              minlength="8"
+              required
+          /></label>
+          <div class="actions">
+            <button class="primary" type="submit">Sign in</button
+            ><button id="signup" type="button">Create account</button>
+          </div>
+          <button id="reset" class="textbutton" type="button">Forgot password?</button>
+        </form>
+      </section>
+      <section id="recovery" class="panel" hidden>
+        <h2>Set a new password</h2>
+        <form id="passwordform">
+          <label
+            >New password<input
+              name="password"
+              type="password"
+              minlength="8"
+              autocomplete="new-password"
+              required /></label
+          ><button class="primary">Save password</button>
+        </form>
+      </section>
+      <section id="join" class="panel" hidden>
+        <h2 id="join-heading">Join Burr Oaks</h2>
+        <p>
+          We’re starting with Pin Oak Ln, Hemlock Ln, Blackthorne Ln, and the portions of Indiana
+          Ave and the local College Rd shown in the neighborhood map. The nearby major College Rd is
+          excluded. An administrator verifies every address.
+        </p>
+        <form id="joinform">
+          <label>Your name<input name="name" required maxlength="100" /></label
+          ><label
+            >Full household address<input
+              name="address"
+              required
+              maxlength="250"
+              placeholder="Street number, street, Naperville, IL, ZIP" /></label
+          ><button class="primary">Request resident access</button>
+        </form>
+      </section>
+      <section id="pending" class="panel" hidden>
+        <h2 id="pending-title">You're on the list</h2>
+        <p id="pending-description">
+          Your request is awaiting administrator review. Household profiles and photos remain
+          private until you’re approved.
+        </p>
+        <button id="refresh">Check approval status</button>
+      </section>
+      <section id="invite-panel" class="panel" hidden>
+        <h2>Join your household</h2>
+        <p>
+          A household manager can give you an invitation code. Sign in with the email they invited,
+          then enter the code to link your existing member profile.
+        </p>
+        <form id="inviteform">
+          <label
+            >Invitation code<input
+              id="invite-code"
+              name="code"
+              autocomplete="off"
+              required
+              maxlength="64"
+              pattern="[a-f0-9]{64}" /></label
+          ><button class="primary">Accept invitation</button
+          ><button id="dismiss-invite" type="button">Dismiss</button>
+        </form>
+      </section>
+      <section id="directory" hidden>
+        <section id="overview">
+          <div class="community-strip">
+            <div>
+              <span class="stat-icon" aria-hidden="true"
+                ><svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  width="21"
+                  height="21"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="9" cy="7" r="3" />
+                  <path
+                    d="M3 21v-3a6 6 0 0 1 12 0v3zM16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2"
+                  /></svg></span
+              ><span
+                ><strong id="overview-count">Your community</strong
+                ><small>Private resident directory</small></span
+              >
+            </div>
+            <div>
+              <span class="stat-icon" aria-hidden="true"
+                ><svg
+                  aria-hidden="true"
+                  viewBox="0 0 24 24"
+                  width="21"
+                  height="21"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m12 3 8 4v6c0 4-4 7-8 9-4-2-8-5-8-9V7z" />
+                  <path d="m8 12 3 3 5-6" /></svg></span
+              ><span
+                ><strong id="overview-privacy-title">Residents only</strong
+                ><small>Household information is only visible to approved neighbors.</small></span
+              >
+            </div>
+          </div>
+          <div class="overview-top">
+            <section class="overview-panel">
+              <div class="module-heading">
+                <h2>Your household</h2>
+                <button id="overview-edit" class="primary">Edit profile</button>
+              </div>
+              <div id="overview-household"></div>
+            </section>
+            <section class="overview-panel">
+              <div class="module-heading"><h2 id="overview-map-title">Explore Burr Oaks</h2></div>
+              <div id="overview-map" aria-label="Neighborhood map preview"></div>
+              <button id="overview-open-map" class="text-link">
+                Open map <span aria-hidden="true">→</span>
+              </button>
+            </section>
+          </div>
+          <section class="overview-panel neighbor-module">
+            <div class="module-heading">
+              <div>
+                <h2>Meet your neighbors</h2>
+                <p id="overview-neighbor-description">A few familiar faces in your community.</p>
+              </div>
+              <button id="overview-browse" class="text-link">
+                Browse directory <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <div id="overview-neighbors" class="overview-neighbors"></div>
+          </section>
+        </section>
+        <div id="directory-controls" class="directory-toolbar">
+          <label class="sort"
+            ><span>Sort by</span
+            ><select id="sort">
+              <option value="name">Household name (A–Z)</option>
+              <option value="address">Street address</option>
+            </select></label
+          >
+          <div id="filters" class="filters" aria-label="Household filters"></div>
+        </div>
+        <div id="browse">
+          <div class="directory-summary">
+            <p id="count"></p>
+            <span>Shared by your neighbors</span>
+          </div>
+          <div id="households" class="cards"></div>
+        </div>
+        <div id="mapview" hidden>
+          <div class="map-shell">
+            <div id="map" aria-label="Burr Oaks household map"></div>
+            <div class="map-caption">
+              <span class="map-status-dot"></span
+              ><span id="map-caption-label">Your neighborhood</span
+              ><span class="map-caption-help">Select a pin to meet a household</span>
+            </div>
+          </div>
+        </div>
+        <section id="detail" class="panel household-detail" hidden></section>
+        <div id="profile" class="panel" hidden>
+          <h2>Make yourselves at home</h2>
+          <p id="profile-audience">
+            Share what you’re comfortable sharing. Approved residents of your neighborhood can see
+            this profile.
+          </p>
+          <p id="household-permission" class="member-note" hidden></p>
+          <form id="profileform">
+            <p id="myaddress"></p>
+            <label
+              >Household display name<input
+                name="display_name"
+                required
+                maxlength="100"
+                placeholder="The Hart household" /></label
+            ><label
+              >Residents summary (optional)<input
+                name="residents"
+                maxlength="300"
+                placeholder="First names or full names — your choice" /></label
+            ><label
+              >Contact email (optional)<input name="email" type="email" maxlength="200" /></label
+            ><label>Phone (optional)<input name="phone" type="tel" maxlength="40" /></label
+            ><label
+              >Interests<input
+                name="interests"
+                maxlength="500"
+                placeholder="Gardening, hiking, board games…" /></label
+            ><label
+              >About your household<textarea name="bio" rows="4" maxlength="1500"></textarea></label
+            ><button class="primary">Save profile</button>
+          </form>
+          <hr />
+          <h3>Household photos</h3>
+          <section id="house-photo-settings" hidden>
+            <form id="photo-preference-form">
+              <label
+                >Main house image<select id="photo-preference">
+                  <option value="auto">My uploaded photo (Street View until I add one)</option>
+                  <option value="streetview">Use Google Street View</option>
+                  <option value="none">Show no house photo</option>
+                </select></label
+              ><button id="save-photo-preference" class="primary">Save photo preference</button>
+            </form>
+            <p id="house-photo-status"></p>
+            <div id="house-photo-preview"></div>
+          </section>
+          <p>
+            Upload a main photo and a small gallery. Uploading a photo makes it your main image. The
+            first uploaded photo is used. Images are resized before upload and stored privately.
+          </p>
+          <label
+            >Add a photo<input id="upload" type="file" accept="image/jpeg,image/png,image/webp"
+          /></label>
+          <div id="myphotos" class="photos"></div>
+          <section id="household-members" class="member-section" hidden>
+            <hr />
+            <div class="module-heading">
+              <div>
+                <h3>Household members</h3>
+                <p>Each person can have a profile. A separate login is optional.</p>
+              </div>
+              <button id="add-member" class="primary">Add member</button>
+            </div>
+            <div id="my-members" class="member-grid"></div>
+            <div id="member-invite-output" class="member-invite-output" hidden></div>
+          </section>
+        </div>
+        <section id="person" class="panel" hidden><div id="person-editor"></div></section>
+        <div id="admin" class="panel" hidden>
+          <h2>Resident approvals</h2>
+          <p>
+            Verify that each address is inside the agreed Burr Oaks area. For a new household, enter
+            its latitude and longitude from Google Maps. For an existing household, select it
+            instead.
+          </p>
+          <div id="requests"></div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <div>
+        Neighborhood Connect
+        <span id="footer-neighborhood" class="footer-neighborhood"> / Burr Oaks</span>
+      </div>
+      <span
+        >Neighbors, connected. <a href="privacy.html">Privacy</a> ·
+        <a href="terms.html">Terms</a></span
+      >
+    </footer>
+  </body>
+</html>

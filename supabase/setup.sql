@@ -1,86 +1,348 @@
 -- Run once in the Supabase SQL Editor on a new project.
-begin;
-create schema if not exists nc_private;
-revoke all on schema nc_private from public;
-grant usage on schema nc_private to authenticated;
-create table public.neighborhoods(id uuid primary key default gen_random_uuid(), slug text unique not null, name text not null);
-create table public.households(
- id uuid primary key default gen_random_uuid(), neighborhood_id uuid not null references public.neighborhoods(id),
- address text not null check(length(address) between 5 and 250), display_name text not null check(length(display_name) between 1 and 100),
- residents text not null default '' check(length(residents)<=300), email text not null default '' check(length(email)<=200),
- phone text not null default '' check(length(phone)<=40), interests text not null default '' check(length(interests)<=500),
- bio text not null default '' check(length(bio)<=1500), latitude double precision not null check(latitude between -90 and 90),
- longitude double precision not null check(longitude between -180 and 180));
-create unique index households_address on public.households(neighborhood_id, lower(trim(address)));
-create table public.memberships(user_id uuid not null references auth.users(id) on delete cascade,
- neighborhood_id uuid not null references public.neighborhoods(id), household_id uuid not null references public.households(id),
- role text not null default 'resident' check(role in ('resident','admin')), primary key(user_id,neighborhood_id));
-create table public.access_requests(id uuid primary key default gen_random_uuid(),user_id uuid not null references auth.users(id) on delete cascade,
- neighborhood_id uuid not null references public.neighborhoods(id),name text not null check(length(name) between 1 and 100),
- address text not null check(length(address) between 5 and 250),status text not null default 'pending' check(status in ('pending','approved','rejected')),
- created_at timestamptz not null default now(),unique(user_id,neighborhood_id));
-create index memberships_household on public.memberships(household_id);
-create index requests_neighborhood on public.access_requests(neighborhood_id);
-create function nc_private.is_member(n uuid) returns boolean language sql stable security definer set search_path='' as $$
- select exists(select 1 from public.memberships m where m.user_id=auth.uid() and m.neighborhood_id=n); $$;
-create function nc_private.is_admin(n uuid) returns boolean language sql stable security definer set search_path='' as $$
- select exists(select 1 from public.memberships m where m.user_id=auth.uid() and m.neighborhood_id=n and m.role='admin'); $$;
-create function nc_private.can_edit(h uuid) returns boolean language sql stable security definer set search_path='' as $$
- select exists(select 1 from public.memberships m where m.user_id=auth.uid() and m.household_id=h); $$;
-create function nc_private.photo_access(path text,writing boolean) returns boolean language sql stable security definer set search_path='' as $$
- select exists(select 1 from public.households h join public.memberships m on m.neighborhood_id=h.neighborhood_id
- where m.user_id=auth.uid() and h.id::text=split_part(path,'/',1) and (not writing or m.household_id=h.id)); $$;
-revoke all on function nc_private.is_member(uuid), nc_private.is_admin(uuid), nc_private.can_edit(uuid), nc_private.photo_access(text,boolean) from public;
-grant execute on function nc_private.is_member(uuid), nc_private.is_admin(uuid), nc_private.can_edit(uuid), nc_private.photo_access(text,boolean) to authenticated;
-alter table public.neighborhoods enable row level security;
-alter table public.households enable row level security;
-alter table public.memberships enable row level security;
-alter table public.access_requests enable row level security;
-revoke all on public.neighborhoods,public.households,public.memberships,public.access_requests from anon,authenticated;
-grant select on public.neighborhoods to anon,authenticated;
-grant select on public.households,public.memberships,public.access_requests to authenticated;
-grant update(display_name,residents,email,phone,interests,bio) on public.households to authenticated;
-create policy neighborhood_branding on public.neighborhoods for select to anon,authenticated using(true);
-create policy directory_approved_only on public.households for select to authenticated using(nc_private.is_member(neighborhood_id));
-create policy edit_own_household on public.households for update to authenticated using(nc_private.can_edit(id)) with check(nc_private.can_edit(id));
-create policy own_membership on public.memberships for select to authenticated using(user_id=auth.uid());
-create policy own_or_admin_request on public.access_requests for select to authenticated using(user_id=auth.uid() or nc_private.is_admin(neighborhood_id));
-create function public.request_access(neighborhood_slug text,resident_name text,household_address text) returns void
- language plpgsql security definer set search_path='' as $$
- declare n uuid;
- begin
- if auth.uid() is null then raise exception 'Sign in first'; end if;
- select id into n from public.neighborhoods where slug=neighborhood_slug;
- if n is null then raise exception 'Neighborhood not found'; end if;
- if nc_private.is_member(n) then raise exception 'Already approved'; end if;
- insert into public.access_requests(user_id,neighborhood_id,name,address) values(auth.uid(),n,trim(resident_name),trim(household_address));
- end; $$;
-create function public.review_request(request_id uuid,approve boolean,lat double precision default null,lng double precision default null,existing_household uuid default null)
- returns void language plpgsql security definer set search_path='' as $$
- declare r public.access_requests; h uuid;
- begin
- select * into r from public.access_requests where id=request_id for update;
- if r.id is null or not nc_private.is_admin(r.neighborhood_id) then raise exception 'Administrator access required'; end if;
- if r.status<>'pending' then raise exception 'Request already reviewed'; end if;
- if approve then
-  if existing_household is not null then
-   select id into h from public.households where id=existing_household and neighborhood_id=r.neighborhood_id;
-   if h is null then raise exception 'Household is not in this neighborhood'; end if;
-  else
-   if lat is null or lng is null then raise exception 'Verified map coordinates required'; end if;
-   insert into public.households(neighborhood_id,address,display_name,latitude,longitude)
-   values(r.neighborhood_id,r.address,r.name||' household',lat,lng) returning id into h;
-  end if;
-  insert into public.memberships(user_id,neighborhood_id,household_id) values(r.user_id,r.neighborhood_id,h);
- end if;
- update public.access_requests set status=case when approve then 'approved' else 'rejected' end where id=r.id;
- end; $$;
-revoke all on function public.request_access(text,text,text),public.review_request(uuid,boolean,double precision,double precision,uuid) from public;
-grant execute on function public.request_access(text,text,text),public.review_request(uuid,boolean,double precision,double precision,uuid) to authenticated;
-insert into public.neighborhoods(slug,name) values('burr-oaks','Burr Oaks');
-insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
- values('household-photos','household-photos',false,2097152,array['image/jpeg','image/png','image/webp']);
-create policy nc_photo_read on storage.objects for select to authenticated using(bucket_id='household-photos' and nc_private.photo_access(name,false));
-create policy nc_photo_upload on storage.objects for insert to authenticated with check(bucket_id='household-photos' and nc_private.photo_access(name,true));
-create policy nc_photo_delete on storage.objects for delete to authenticated using(bucket_id='household-photos' and nc_private.photo_access(name,true));
-commit;
+BEGIN;
+
+CREATE SCHEMA IF NOT EXISTS nc_private;
+
+REVOKE ALL ON SCHEMA nc_private
+FROM
+  public;
+
+GRANT usage ON SCHEMA nc_private TO authenticated;
+
+CREATE TABLE public.neighborhoods (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug text UNIQUE NOT NULL,
+  name text NOT NULL
+);
+
+CREATE TABLE public.households (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  neighborhood_id uuid NOT NULL REFERENCES public.neighborhoods (id),
+  address text NOT NULL CHECK (length(address) BETWEEN 5 AND 250),
+  display_name text NOT NULL CHECK (length(display_name) BETWEEN 1 AND 100),
+  residents text NOT NULL DEFAULT '' CHECK (length(residents) <= 300),
+  email text NOT NULL DEFAULT '' CHECK (length(email) <= 200),
+  phone text NOT NULL DEFAULT '' CHECK (length(phone) <= 40),
+  interests text NOT NULL DEFAULT '' CHECK (length(interests) <= 500),
+  bio text NOT NULL DEFAULT '' CHECK (length(bio) <= 1500),
+  latitude double precision NOT NULL CHECK (latitude BETWEEN -90 AND 90),
+  longitude double precision NOT NULL CHECK (longitude BETWEEN -180 AND 180)
+);
+
+CREATE UNIQUE INDEX households_address ON public.households (neighborhood_id, lower(trim(address)));
+
+CREATE TABLE public.memberships (
+  user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  neighborhood_id uuid NOT NULL REFERENCES public.neighborhoods (id),
+  household_id uuid NOT NULL REFERENCES public.households (id),
+  role text NOT NULL DEFAULT 'resident' CHECK (ROLE IN ('resident', 'admin')),
+  PRIMARY KEY (user_id, neighborhood_id)
+);
+
+CREATE TABLE public.access_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  neighborhood_id uuid NOT NULL REFERENCES public.neighborhoods (id),
+  name text NOT NULL CHECK (length(name) BETWEEN 1 AND 100),
+  address text NOT NULL CHECK (length(address) BETWEEN 5 AND 250),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (user_id, neighborhood_id)
+);
+
+CREATE INDEX memberships_household ON public.memberships (household_id);
+
+CREATE INDEX requests_neighborhood ON public.access_requests (neighborhood_id);
+
+CREATE FUNCTION nc_private.is_member (n uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET
+  search_path = '' AS $$
+  SELECT
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public.memberships m
+      WHERE
+        m.user_id = auth.uid ()
+        AND m.neighborhood_id = n);
+$$;
+
+CREATE FUNCTION nc_private.is_admin (n uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET
+  search_path = '' AS $$
+  SELECT
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public.memberships m
+      WHERE
+        m.user_id = auth.uid ()
+        AND m.neighborhood_id = n
+        AND m.role = 'admin');
+$$;
+
+CREATE FUNCTION nc_private.can_edit (h uuid) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET
+  search_path = '' AS $$
+  SELECT
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public.memberships m
+      WHERE
+        m.user_id = auth.uid ()
+        AND m.household_id = h);
+$$;
+
+CREATE FUNCTION nc_private.photo_access (path text, writing boolean) RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+SET
+  search_path = '' AS $$
+  SELECT
+    EXISTS (
+      SELECT
+        1
+      FROM
+        public.households h
+        JOIN public.memberships m ON m.neighborhood_id = h.neighborhood_id
+      WHERE
+        m.user_id = auth.uid ()
+        AND h.id::text = split_part(path, '/', 1)
+        AND (NOT writing
+          OR m.household_id = h.id));
+$$;
+
+REVOKE ALL ON FUNCTION nc_private.is_member (uuid),
+nc_private.is_admin (uuid),
+nc_private.can_edit (uuid),
+nc_private.photo_access (text, boolean)
+FROM
+  public;
+
+GRANT
+EXECUTE ON FUNCTION nc_private.is_member (uuid),
+nc_private.is_admin (uuid),
+nc_private.can_edit (uuid),
+nc_private.photo_access (text, boolean) TO authenticated;
+
+ALTER TABLE public.neighborhoods ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.households ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.memberships ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.access_requests ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.neighborhoods,
+public.households,
+public.memberships,
+public.access_requests
+FROM
+  anon,
+  authenticated;
+
+GRANT
+SELECT
+  ON public.neighborhoods TO anon,
+  authenticated;
+
+GRANT
+SELECT
+  ON public.households,
+  public.memberships,
+  public.access_requests TO authenticated;
+
+GRANT
+UPDATE (
+  display_name,
+  residents,
+  email,
+  phone,
+  interests,
+  bio
+) ON public.households TO authenticated;
+
+CREATE POLICY neighborhood_branding ON public.neighborhoods FOR
+SELECT
+  TO anon,
+  authenticated USING (TRUE);
+
+CREATE POLICY directory_approved_only ON public.households FOR
+SELECT
+  TO authenticated USING (nc_private.is_member (neighborhood_id));
+
+CREATE POLICY edit_own_household ON public.households
+FOR UPDATE
+  TO authenticated USING (nc_private.can_edit (id))
+WITH
+  CHECK (nc_private.can_edit (id));
+
+CREATE POLICY own_membership ON public.memberships FOR
+SELECT
+  TO authenticated USING (user_id = auth.uid ());
+
+CREATE POLICY own_or_admin_request ON public.access_requests FOR
+SELECT
+  TO authenticated USING (
+    user_id = auth.uid ()
+    OR nc_private.is_admin (neighborhood_id)
+  );
+
+CREATE FUNCTION public.request_access (
+  neighborhood_slug text,
+  resident_name text,
+  household_address text
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET
+  search_path = '' AS $$
+DECLARE
+  n uuid;
+BEGIN
+  IF auth.uid () IS NULL THEN
+    RAISE EXCEPTION 'Sign in first';
+  END IF;
+  SELECT
+    id INTO n
+  FROM
+    public.neighborhoods
+  WHERE
+    slug = neighborhood_slug;
+  IF n IS NULL THEN
+    RAISE EXCEPTION 'Neighborhood not found';
+  END IF;
+  IF nc_private.is_member (n) THEN
+    RAISE EXCEPTION 'Already approved';
+  END IF;
+  INSERT INTO public.access_requests (user_id, neighborhood_id, name, address)
+    VALUES (auth.uid (), n, trim(resident_name), trim(household_address));
+END;
+$$;
+
+CREATE FUNCTION public.review_request (
+  request_id uuid,
+  approve boolean,
+  lat double precision DEFAULT NULL,
+  lng double precision DEFAULT NULL,
+  existing_household uuid DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql SECURITY DEFINER
+SET
+  search_path = '' AS $$
+DECLARE
+  r public.access_requests;
+  h uuid;
+BEGIN
+  SELECT
+    * INTO r
+  FROM
+    public.access_requests
+  WHERE
+    id = request_id
+  FOR UPDATE;
+  IF r.id IS NULL OR NOT nc_private.is_admin (r.neighborhood_id) THEN
+    RAISE EXCEPTION 'Administrator access required';
+  END IF;
+  IF r.status <> 'pending' THEN
+    RAISE EXCEPTION 'Request already reviewed';
+  END IF;
+  IF approve THEN
+    IF existing_household IS NOT NULL THEN
+      SELECT
+        id INTO h
+      FROM
+        public.households
+      WHERE
+        id = existing_household
+        AND neighborhood_id = r.neighborhood_id;
+      IF h IS NULL THEN
+        RAISE EXCEPTION 'Household is not in this neighborhood';
+      END IF;
+    ELSE
+      IF lat IS NULL OR lng IS NULL THEN
+        RAISE EXCEPTION 'Verified map coordinates required';
+      END IF;
+      INSERT INTO public.households (neighborhood_id, address, display_name, latitude, longitude)
+        VALUES (r.neighborhood_id, r.address, r.name || ' household', lat, lng)
+      RETURNING
+        id INTO h;
+    END IF;
+    INSERT INTO public.memberships (user_id, neighborhood_id, household_id)
+      VALUES (r.user_id, r.neighborhood_id, h);
+  END IF;
+  UPDATE
+    public.access_requests
+  SET
+    status = CASE WHEN approve THEN
+      'approved'
+    ELSE
+      'rejected'
+    END
+  WHERE
+    id = r.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.request_access (text, text, text),
+public.review_request (
+  uuid,
+  boolean,
+  double precision,
+  double precision,
+  uuid
+)
+FROM
+  public;
+
+GRANT
+EXECUTE ON FUNCTION public.request_access (text, text, text),
+public.review_request (
+  uuid,
+  boolean,
+  double precision,
+  double precision,
+  uuid
+) TO authenticated;
+
+INSERT INTO
+  public.neighborhoods (slug, name)
+VALUES
+  ('burr-oaks', 'Burr Oaks');
+
+INSERT INTO
+  storage.buckets (
+    id,
+    name,
+    public,
+    file_size_limit,
+    allowed_mime_types
+  )
+VALUES
+  (
+    'household-photos',
+    'household-photos',
+    FALSE,
+    2097152,
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
+  );
+
+CREATE POLICY nc_photo_read ON storage.objects FOR
+SELECT
+  TO authenticated USING (
+    bucket_id = 'household-photos'
+    AND nc_private.photo_access (name, FALSE)
+  );
+
+CREATE POLICY nc_photo_upload ON storage.objects FOR INSERT TO authenticated
+WITH
+  CHECK (
+    bucket_id = 'household-photos'
+    AND nc_private.photo_access (name, TRUE)
+  );
+
+CREATE POLICY nc_photo_delete ON storage.objects FOR DELETE TO authenticated USING (
+  bucket_id = 'household-photos'
+  AND nc_private.photo_access (name, TRUE)
+);
+
+COMMIT;

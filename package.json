@@ -1,0 +1,13 @@
+{
+  "name": "neighborhood-connect",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write . && prettier --parser html --write \"assets/*.svg\"",
+    "format:check": "prettier --check . && prettier --parser html --check \"assets/*.svg\"",
+    "test": "npm --prefix tests test"
+  },
+  "devDependencies": {
+    "prettier": "3.9.10",
+    "prettier-plugin-sql": "0.20.0"
+  }
+}

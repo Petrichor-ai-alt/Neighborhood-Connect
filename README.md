@@ -69,3 +69,9 @@ A shared `householdPhoto()` selector applies everywhere: automatic mode uses the
 **My household → Household photos → Main house image** offers automatic uploaded-photo priority, an explicit Street View choice, or no house image. Only a household manager can persist this preference. Uploading a photo switches back to automatic mode. Choosing no house image hides the public-to-neighbors house photo/gallery, while the manager can still maintain existing uploads. Preference changes do not delete stored uploads or change their storage permissions. Reload after enabling Google's API if it was unavailable earlier. Google images may be outdated or show the wrong house; a resident can replace them with an upload or hide them. No camera-angle adjustment interface has been added.
 
 The feature stays disabled until the photo-preference database column exists. Public Privacy and Terms pages are linked in the footer and describe the Google imagery integration. Tests cover photo source priority, explicit choices, failure fallback, attribution markup, pre-migration behavior, and manager-only preference writes. Visual rendering and live Google API authorization still require checking on the deployed site.
+
+## Readable code and housekeeping
+
+Before each change, refresh from the latest GitHub `main` commit so direct user edits are preserved. `AGENTS.md` records this rule and requires a guarded update before publishing.
+
+Formatter dependencies are development-only. Run `npm ci` once, then `npm run format` to format source files, or `npm run format:check` to check formatting. `.editorconfig` sets two-space indentation and LF line endings. SQL uses the PostgreSQL formatter. The website continues to serve directly through GitHub Pages without a build step.

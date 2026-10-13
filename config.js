@@ -9,9 +9,10 @@ window.NC_CONFIG = {
     location: 'Naperville, Illinois',
     signImage: 'assets/burr-oaks-sign-cutout.png',
     favicon: 'assets/burr-oaks-icon.svg',
-    areaDescription: 'We’re starting with Pin Oak Ln, Hemlock Ln, Blackthorne Ln, and the portions of Indiana Ave and the local College Rd shown in the neighborhood map. The nearby major College Rd is excluded. An administrator verifies every address.'
+    areaDescription:
+      'We’re starting with Pin Oak Ln, Hemlock Ln, Blackthorne Ln, and the portions of Indiana Ave and the local College Rd shown in the neighborhood map. The nearby major College Rd is excluded. An administrator verifies every address.',
   },
   // Approximate area center only. Household pins use administrator-verified coordinates.
   center: { lat: 41.752, lng: -88.105 },
-  mapId: 'DEMO_MAP_ID'
+  mapId: 'DEMO_MAP_ID',
 };
