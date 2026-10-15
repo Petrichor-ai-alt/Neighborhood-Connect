@@ -173,9 +173,8 @@ async function openCommunityCalendar() {
     eventContent: (info) => {
       const span = document.createElement('span');
       const row = info.event.extendedProps.row;
-      const time = row.all_day ? 'All day' : calendarDate(row.starts_at).toFormat('h:mm a');
       span.className = 'calendar-event-label';
-      span.textContent = `${time} · ${info.event.title}`;
+      span.textContent = `${info.timeText ? `${info.timeText} · ` : ''}${info.event.title}`;
       span.title = `${info.event.title} — ${eventWhen(row)}`;
       return { domNodes: [span] };
     },

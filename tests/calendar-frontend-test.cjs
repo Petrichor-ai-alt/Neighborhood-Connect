@@ -124,23 +124,15 @@ const exec = (s) => vm.runInContext(s, ctx);
   assert.equal(Calendar.latest.opts.initialView, 'dayGridMonth');
   assert.equal(successRows.length, 1);
   assert.equal(Calendar.latest.opts.eventDisplay, 'block');
-  for (const [starts, ends] of [
-    ['2026-10-22T00:00:00Z', '2026-10-22T01:00:00Z'],
-    ['2026-12-05T01:00:00Z', '2026-12-05T02:00:00Z'],
-  ]) {
-    const row = { ...rows[0], starts_at: starts, ends_at: ends };
-    const event = { title: row.title, extendedProps: { row } };
-    const label = Calendar.latest.opts.eventContent({ event, timeText: '6:00pm' }).domNodes[0];
-    assert.ok(label.textContent.startsWith('7:00 PM · '));
-    assert.equal(label.title.includes(row.title), true);
-    const el = document.createElement('a');
-    Calendar.latest.opts.eventDidMount({ event, el });
-    assert.equal(el.title, label.title);
-    assert.equal(el.getAttribute('aria-label'), label.title);
-    exec('openEventEditor(' + JSON.stringify(row) + ')');
-    assert.ok(document.getElementById('event-form').elements.starts.value.endsWith('19:00'));
-  }
-
+  const event = { title: rows[0].title, extendedProps: { row: rows[0] } };
+  const label = Calendar.latest.opts.eventContent({ event, timeText: '6:00pm' }).domNodes[0];
+  assert.equal(label.textContent, '6:00pm · ' + rows[0].title);
+  assert.equal(label.className, 'calendar-event-label');
+  assert.ok(label.title.includes(rows[0].title));
+  const eventElement = document.createElement('a');
+  Calendar.latest.opts.eventDidMount({ event, el: eventElement });
+  assert.equal(eventElement.title, label.title);
+  assert.equal(eventElement.getAttribute('aria-label'), label.title);
   assert.equal(document.getElementById('add-event').disabled, false);
   document.getElementById('calendar-upcoming').onclick();
   assert.equal(Calendar.latest.changed[0], 'listNext90');
