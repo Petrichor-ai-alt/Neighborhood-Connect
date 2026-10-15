@@ -590,6 +590,26 @@ async function setup({
   vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseenter'))", pins.ctx);
   assert.equal(windows.length, 1);
   assert.equal(windows[0].openOptions.shouldFocus, false);
+  assert.equal(windows[0].content.querySelector('.pin-popup-title').textContent, 'Test home');
+  assert.equal(windows[0].content.querySelector('.pin-popup-address').textContent, '1 Test Lane');
+  vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseleave'))", pins.ctx);
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.equal(windows[0].opened, false, 'Hover popup closes after leaving the pin.');
+  vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseenter'))", pins.ctx);
+  vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseleave'))", pins.ctx);
+  windows[0].content.dispatchEvent(new pins.ctx.window.Event('mouseenter'));
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.equal(windows[0].opened, true, 'Popup remains usable while hovering its contents.');
+  windows[0].content.dispatchEvent(new pins.ctx.window.Event('mouseleave'));
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.equal(windows[0].opened, false);
+  vm.runInContext(
+    "markers[0].listeners.click();markers[0].content.dispatchEvent(new window.Event('mouseleave'))",
+    pins.ctx,
+  );
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  assert.equal(windows[0].opened, true, 'Click/tap popup remains available for interaction.');
+
   vm.runInContext("households[0].phone='';openPinPopup(households[0],markers[0])", pins.ctx);
   assert.equal(windows[0].content.querySelector('.pin-popup-phone'), null);
   let openedHousehold;
@@ -606,6 +626,11 @@ async function setup({
     pins.ctx,
   );
   assert.ok(windows[0].content.textContent.includes('Legacy names'));
+  vm.runInContext("households[0].residents='';openPinPopup(households[0],markers[0])", pins.ctx);
+  assert.equal(windows[0].content.querySelector('.pin-popup-members'), null);
+  assert.ok(windows[0].content.textContent.includes('Test home'));
+  assert.ok(windows[0].content.textContent.includes('1 Test Lane'));
+  assert.equal(windows[0].content.textContent.includes('Members not listed'), false);
   vm.runInContext("view('profile')", pins.ctx);
   assert.equal(windows[0].opened, false);
   vm.runInContext('membership=null;openPinPopup(households[0],markers[0])', pins.ctx);

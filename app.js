@@ -546,29 +546,61 @@ async function loadMap() {
         streetViewControl: false,
       });
       map.addListener('click', closePinPopup);
+      map.addListener('dragstart', closePinPopup);
     }
     render();
   } catch (e) {
     notice(e.message, true);
   }
 }
-let pinPopup;
+let pinPopup,
+  pinPopupMarker,
+  pinPopupCloseTimer,
+  pinPopupIsHover = false;
 function closePinPopup() {
+  clearTimeout(pinPopupCloseTimer);
+  pinPopupMarker = null;
+  pinPopupIsHover = false;
   if (!pinPopup) return;
   pinPopup.close();
   pinPopup.setContent('');
 }
-function pinPopupContent(h) {
+function schedulePinPopupClose(marker) {
+  if (!pinPopupIsHover || marker !== pinPopupMarker) return;
+  clearTimeout(pinPopupCloseTimer);
+  pinPopupCloseTimer = setTimeout(() => {
+    if (pinPopupIsHover && marker === pinPopupMarker) closePinPopup();
+  }, 150);
+}
+function pinPopupContent(h, marker) {
   const content = document.createElement('div');
   content.className = 'pin-popup';
+  const title = document.createElement('strong');
+  title.className = 'pin-popup-title';
+  title.textContent = h.display_name;
+  content.append(title);
+  if (h.address) {
+    const address = document.createElement('p');
+    address.className = 'pin-popup-address';
+    address.textContent = h.address;
+    content.append(address);
+  }
+  content.addEventListener('mouseenter', () => clearTimeout(pinPopupCloseTimer));
+  content.addEventListener('mouseleave', () => schedulePinPopupClose(marker));
+  content.addEventListener('focusin', () => clearTimeout(pinPopupCloseTimer));
+  content.addEventListener('focusout', (event) => {
+    if (!content.contains(event.relatedTarget)) schedulePinPopupClose(marker);
+  });
   const names = members
     .filter((person) => person.household_id === h.id)
     .map((person) => person.display_name)
     .join(', ');
-  const memberLine = document.createElement('p');
-  memberLine.className = 'pin-popup-members';
-  memberLine.textContent = names || h.residents || 'Members not listed yet';
-  content.append(memberLine);
+  if (names || h.residents) {
+    const memberLine = document.createElement('p');
+    memberLine.className = 'pin-popup-members';
+    memberLine.textContent = names || h.residents;
+    content.append(memberLine);
+  }
   const phone = (h.phone || '').trim();
   if (phone) {
     const dialNumber = phone.replace(/[^\d+]/g, '');
@@ -594,11 +626,20 @@ function pinPopupContent(h) {
 }
 function openPinPopup(h, marker, shouldFocus = true) {
   if (!membership || !households.some((household) => household.id === h.id)) return;
+  clearTimeout(pinPopupCloseTimer);
+  pinPopupMarker = marker;
+  pinPopupIsHover = !shouldFocus;
   if (!pinPopup) pinPopup = new google.maps.InfoWindow({ maxWidth: 260 });
-  pinPopup.setOptions({ ariaLabel: `${h.display_name} household members and phone` });
-  pinPopup.setContent(pinPopupContent(h));
+  pinPopup.setOptions({
+    ariaLabel: `${h.display_name} household details`,
+    disableAutoPan: !shouldFocus,
+  });
+  pinPopup.setContent(pinPopupContent(h, marker));
   pinPopup.open({ map, anchor: marker, shouldFocus });
 }
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closePinPopup();
+});
 function drawMarkers(rows) {
   closePinPopup();
   const missing = rows.some((h) => !hasCurrentHouseholdLocation(h));
@@ -623,6 +664,7 @@ function drawMarkers(rows) {
       if (window.matchMedia('(hover: hover) and (pointer: fine)').matches)
         openPinPopup(h, m, false);
     });
+    pin.addEventListener('mouseleave', () => schedulePinPopupClose(m));
     return m;
   });
   if (rows.length) {
