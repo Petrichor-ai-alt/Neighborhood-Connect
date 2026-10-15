@@ -2465,8 +2465,37 @@ button.danger {
   --fc-event-bg-color: #f6e4df;
   --fc-event-border-color: #dcb6ab;
 }
-#community-calendar .fc-daygrid-block-event span {
-  white-space: normal;
+#community-calendar .fc-daygrid-block-event {
+  overflow: hidden;
+  min-width: 0;
+}
+#community-calendar .fc-event-main {
+  min-width: 0;
+}
+#community-calendar .calendar-event-label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+#community-calendar .fc-list-event-time {
+  display: none;
+}
+#community-calendar .fc-list-event-title {
+  max-width: 0;
+}
+#community-calendar .fc-daygrid-event {
+  border: 1px solid #245a44;
+  background: #245a44;
+  color: #fff;
+}
+#community-calendar .fc-daygrid-event.event-cancelled {
+  border-color: #dcb6ab;
+  background: #f6e4df;
+}
+#community-calendar .event-cancelled .fc-event-main {
+  color: #98463b;
 }
 .event-dialog {
   width: min(600px, calc(100% - 28px));

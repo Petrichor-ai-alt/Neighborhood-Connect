@@ -156,6 +156,7 @@ async function openCommunityCalendar() {
     fixedWeekCount: false,
     dayMaxEvents: 3,
     editable: false,
+    eventDisplay: 'block',
     eventTimeFormat: { hour: 'numeric', minute: '2-digit', meridiem: 'short' },
     noEventsContent: 'No events in this period. Make a plan with your neighbors.',
     events: fetchCalendarEvents,
@@ -164,9 +165,18 @@ async function openCommunityCalendar() {
       info.jsEvent?.preventDefault();
       run(() => openEventDetail(info.event.id));
     },
+    eventDidMount: (info) => {
+      const row = info.event.extendedProps.row;
+      info.el.title = `${info.event.title} — ${eventWhen(row)}`;
+      info.el.setAttribute('aria-label', info.el.title);
+    },
     eventContent: (info) => {
       const span = document.createElement('span');
-      span.textContent = `${info.timeText ? `${info.timeText} · ` : ''}${info.event.title}`;
+      const row = info.event.extendedProps.row;
+      const time = row.all_day ? 'All day' : calendarDate(row.starts_at).toFormat('h:mm a');
+      span.className = 'calendar-event-label';
+      span.textContent = `${time} · ${info.event.title}`;
+      span.title = `${info.event.title} — ${eventWhen(row)}`;
       return { domNodes: [span] };
     },
   });
