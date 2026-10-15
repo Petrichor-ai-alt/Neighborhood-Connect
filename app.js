@@ -117,6 +117,7 @@ function view(id) {
         const preview = !$('overview').hidden;
         map.setOptions({
           disableDefaultUI: preview,
+          zoomControl: true,
           gestureHandling: preview ? 'none' : 'cooperative',
           clickableIcons: !preview,
         });
