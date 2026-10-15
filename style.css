@@ -2870,3 +2870,64 @@ button.danger {
     font-size: 18px;
   }
 }
+
+/* Search opens over the page, leaving the header compact. */
+#main-content .intro {
+  position: relative;
+}
+.intro .header-tools {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  align-self: start;
+}
+.intro .header-tools .platform-logo {
+  margin-top: 0;
+  align-self: center;
+}
+.search-toggle {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  flex-shrink: 0;
+  color: #245a44;
+  border: 1px solid #dce5dc;
+  background: #fff;
+}
+.search-toggle[aria-expanded='true'] {
+  background: #edf3e8;
+  border-color: #abc9ae;
+}
+.intro #directory-search {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 30;
+  width: min(420px, 100%);
+  max-width: none;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #dce5dc;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 28px #173e2926;
+}
+.intro #directory-search svg {
+  left: 26px;
+}
+.intro #directory-search input {
+  padding-left: 42px;
+}
+@media (max-width: 600px) {
+  .intro .header-tools {
+    gap: 8px;
+  }
+  .search-toggle {
+    width: 36px;
+    height: 36px;
+  }
+}

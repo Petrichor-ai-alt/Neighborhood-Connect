@@ -668,3 +668,38 @@ async function setup({
   console.error(e);
   process.exitCode = 1;
 });
+
+(async () => {
+  const { ctx, document } = await setup();
+  const toggle = document.getElementById('search-toggle');
+  const panel = document.getElementById('directory-search');
+  assert.equal(toggle.hidden, false);
+  assert.equal(panel.hidden, true);
+  toggle.onclick();
+  assert.equal(panel.hidden, false);
+  assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  document.getElementById('search').value = 'Alex';
+  document.getElementById('search').oninput();
+  assert.equal(document.getElementById('browse').hidden, false);
+  assert.equal(panel.hidden, false);
+  const escape = new document.defaultView.Event('keydown', { bubbles: true });
+  escape.key = 'Escape';
+  document.dispatchEvent(escape);
+  assert.equal(panel.hidden, true);
+  toggle.onclick();
+  document.body.dispatchEvent(new document.defaultView.Event('click', { bubbles: true }));
+  assert.equal(panel.hidden, true);
+  toggle.onclick();
+  vm.runInContext("view('profile')", ctx);
+  assert.equal(panel.hidden, true);
+  assert.equal(toggle.hidden, true);
+  const signedOut = await setup({ signed: false });
+  assert.equal(signedOut.document.getElementById('search-toggle').hidden, true);
+  assert.equal(signedOut.document.getElementById('directory-search').hidden, true);
+  console.log(
+    'PASS: compact search toggling, filtering, Escape, outside click, navigation and signed-out hiding.',
+  );
+})().catch((e) => {
+  console.error(e);
+  process.exitCode = 1;
+});

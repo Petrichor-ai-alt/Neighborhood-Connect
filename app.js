@@ -58,6 +58,12 @@ async function run(fn) {
 function show(id, visible) {
   $(id).hidden = !visible;
 }
+function setSearchOpen(open, focus = true) {
+  const visible = open && !!membership && !$('search-toggle').hidden;
+  show('directory-search', visible);
+  $('search-toggle').setAttribute('aria-expanded', String(visible));
+  if (visible && focus) $('search').focus();
+}
 function view(id) {
   if (!user) return;
   closePinPopup();
@@ -105,7 +111,8 @@ function view(id) {
   $('main-content').dataset.view = id;
   show('page-eyebrow', id !== 'overview');
   const browsing = id === 'browse' || id === 'mapview';
-  show('directory-search', browsing || id === 'overview');
+  setSearchOpen(false);
+  show('search-toggle', browsing || id === 'overview');
   show('directory-controls', browsing);
   show('detail', false);
   if (id === 'overview' || id === 'mapview')
@@ -150,6 +157,7 @@ async function load() {
     'account-role',
     'account-avatar',
     'directory-search',
+    'search-toggle',
     'directory-controls',
     'persontab',
     'settings',
@@ -157,6 +165,7 @@ async function load() {
   ].forEach((x) => show(x, false));
   show('signout', !!user);
   show('settings-tab', !!user);
+  setSearchOpen(false);
   clearAccountSettings();
   resetCommunityCalendar();
   syncInvitePanel();
@@ -876,8 +885,27 @@ $('joinform').onsubmit = (e) => {
   });
 };
 $('refresh').onclick = () => run(load);
+$('search-toggle').onclick = () => setSearchOpen($('directory-search').hidden);
+document.addEventListener('click', (event) => {
+  if (
+    !$('directory-search').hidden &&
+    !$('directory-search').contains(event.target) &&
+    !$('search-toggle').contains(event.target)
+  )
+    setSearchOpen(false);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && !$('directory-search').hidden) {
+    event.preventDefault();
+    setSearchOpen(false);
+    $('search-toggle').focus();
+  }
+});
 $('search').oninput = () => {
-  if (!$('overview').hidden && $('search').value.trim()) view('browse');
+  if (!$('overview').hidden && $('search').value.trim()) {
+    view('browse');
+    setSearchOpen(true);
+  }
   render();
 };
 $('sort').onchange = render;

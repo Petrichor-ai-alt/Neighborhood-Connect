@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=household-summary-1" />
+    <link rel="stylesheet" href="style.css?v=search-panel-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -23,7 +23,7 @@
     <script src="members.js?v=address-geocoding-1" defer></script>
     <script src="account-settings.js?v=account-settings-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
-    <script src="app.js?v=household-summary-1" defer></script>
+    <script src="app.js?v=search-panel-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -190,13 +190,37 @@
     </aside>
     <main id="main-content">
       <section class="intro" aria-label="Neighborhood welcome">
-        <img
-          class="platform-logo"
-          src="assets/neighborhood-connect-logo.svg"
-          alt="Neighborhood Connect"
-          width="180"
-          height="41"
-        />
+        <div class="header-tools">
+          <button
+            id="search-toggle"
+            class="search-toggle"
+            type="button"
+            aria-label="Search households"
+            aria-expanded="false"
+            aria-controls="directory-search"
+            hidden
+          >
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              width="21"
+              height="21"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+            >
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <path d="m16 16 4 4" />
+            </svg>
+          </button>
+          <img
+            class="platform-logo"
+            src="assets/neighborhood-connect-logo.svg"
+            alt="Neighborhood Connect"
+            width="180"
+            height="41"
+          />
+        </div>
         <div>
           <span id="page-eyebrow" class="eyebrow">BURR OAKS · PRIVATE RESIDENT COMMUNITY</span>
           <h1 id="page-title">Welcome to your neighborhood</h1>
