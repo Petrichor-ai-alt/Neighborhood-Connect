@@ -407,6 +407,18 @@ function downloadEventCalendar(row) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+function closeEventEditor() {
+  // Publishing is already in progress; closing cannot undo a submitted event.
+  if ($('event-save').disabled) return;
+  $('event-editor-dialog').close();
+  calendarEditing = null;
+  [...$('event-form').elements].forEach((el) => {
+    if (el.name) el.value = '';
+    if (el.type === 'checkbox') el.checked = false;
+  });
+  $('event-form-error').textContent = '';
+  $('add-event').focus();
+}
 function initCommunityCalendar() {
   $('add-event').onclick = () => openEventEditor();
   $('calendar-month').onclick = () => {
@@ -423,7 +435,23 @@ function initCommunityCalendar() {
   };
   $('calendar-retry').onclick = () => run(openCommunityCalendar);
   $('event-detail-close').onclick = () => $('event-detail-dialog').close();
-  $('event-editor-close').onclick = () => $('event-editor-dialog').close();
+  $('event-editor-close').onclick = closeEventEditor;
+  $('event-editor-cancel').onclick = closeEventEditor;
+  $('event-editor-dialog').oncancel = (event) => {
+    event.preventDefault();
+    closeEventEditor();
+  };
+  $('event-editor-dialog').onclick = (event) => {
+    if (event.target !== $('event-editor-dialog')) return;
+    const bounds = event.target.getBoundingClientRect();
+    if (
+      event.clientX < bounds.left ||
+      event.clientX > bounds.right ||
+      event.clientY < bounds.top ||
+      event.clientY > bounds.bottom
+    )
+      closeEventEditor();
+  };
   $('event-form').elements.all_day.onchange = () => {
     const form = $('event-form');
     if (form.elements.all_day.checked) {

@@ -130,6 +130,25 @@ const exec = (s) => vm.runInContext(s, ctx);
   assert.equal(exec("eventTimeToUtc('2026-12-04T18:00')"), '2026-12-05T00:00:00.000Z');
   assert.throws(() => exec("eventTimeToUtc('2026-03-08T02:30')"), /does not exist/);
   assert.throws(() => exec("eventTimeToUtc('2026-11-01T01:30')"), /occurs twice/);
+  document.getElementById('add-event').focus = () => {};
+  const writesBeforeCancel = calls.filter((c) => c.name === 'save_neighborhood_event').length;
+  for (const control of ['event-editor-cancel', 'event-editor-close', 'escape', 'backdrop']) {
+    exec("openEventEditor(null,'2026-12-24')");
+    document.getElementById('event-form').elements.title.value = 'An unsaved draft';
+    const dialog = document.getElementById('event-editor-dialog');
+    if (control === 'escape') dialog.oncancel({ preventDefault() {} });
+    else if (control === 'backdrop') {
+      dialog.getBoundingClientRect = () => ({ left: 100, right: 500, top: 100, bottom: 500 });
+      dialog.onclick({ target: dialog, clientX: 20, clientY: 20 });
+    } else document.getElementById(control).onclick();
+    assert.equal(dialog.open, false);
+    assert.equal(document.getElementById('event-form').elements.title.value, '');
+  }
+  assert.equal(
+    calls.filter((c) => c.name === 'save_neighborhood_event').length,
+    writesBeforeCancel,
+  );
+  assert.equal(document.getElementById('event-editor-cancel').getAttribute('type'), 'button');
   exec("openEventEditor(null,'2026-12-24')");
   const form = document.getElementById('event-form');
   form.elements.title.value = 'Holiday walk';

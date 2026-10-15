@@ -22,7 +22,7 @@
     <script src="household-photos.js?v=address-geocoding-1" defer></script>
     <script src="members.js?v=address-geocoding-1" defer></script>
     <script src="account-settings.js?v=account-settings-1" defer></script>
-    <script src="calendar.js?v=community-calendar-1" defer></script>
+    <script src="calendar.js?v=community-calendar-2" defer></script>
     <script src="app.js?v=community-calendar-1" defer></script>
   </head>
   <body>
@@ -511,7 +511,9 @@
       <dialog id="event-editor-dialog" class="event-dialog" aria-labelledby="event-editor-title">
         <div class="event-dialog-top">
           <span class="eyebrow">Bring neighbors together</span
-          ><button id="event-editor-close" aria-label="Close event editor">✕</button>
+          ><button id="event-editor-close" type="button" aria-label="Close event editor">
+            Close ×
+          </button>
         </div>
         <h2 id="event-editor-title">Add an event</h2>
         <p id="event-editor-zone"></p>
@@ -553,7 +555,10 @@
             sent.
           </p>
           <p id="event-form-error" role="alert"></p>
-          <button id="event-save" class="primary">Publish event</button>
+          <div class="event-form-actions">
+            <button id="event-editor-cancel" type="button">Cancel</button
+            ><button id="event-save" type="submit" class="primary">Publish event</button>
+          </div>
         </form>
       </dialog>
       <section id="settings" hidden aria-label="Private account settings">

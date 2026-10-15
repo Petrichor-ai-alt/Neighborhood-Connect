@@ -2578,3 +2578,29 @@ button.danger {
     padding: 20px;
   }
 }
+
+/* Keep dismissal controls visible in long event forms, including on phones. */
+#event-editor-dialog .event-dialog-top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding: 10px 0;
+}
+#event-editor-close {
+  flex-shrink: 0;
+  min-height: 44px;
+  min-width: 88px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.event-form-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 0 4px;
+  background: var(--surface);
+}
