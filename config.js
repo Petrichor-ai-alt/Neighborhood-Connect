@@ -8,7 +8,7 @@ window.NC_CONFIG = {
     name: 'Burr Oaks',
     location: 'Naperville, Illinois',
     signImage: 'assets/burr-oaks-sign-cutout.png',
-    favicon: 'assets/burr-oaks-icon.svg',
+    favicon: 'assets/neighborhood-connect-icon.svg',
     areaDescription:
       'We’re starting with Pin Oak Ln, Hemlock Ln, Blackthorne Ln, and the portions of Indiana Ave and the local College Rd shown in the neighborhood map. The nearby major College Rd is excluded. An administrator verifies every address.',
   },
