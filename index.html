@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=calendar-confirmation-6" />
+    <link rel="stylesheet" href="style.css?v=home-dashboard-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -22,8 +22,8 @@
     <script src="household-photos.js?v=address-geocoding-1" defer></script>
     <script src="members.js?v=address-geocoding-1" defer></script>
     <script src="account-settings.js?v=account-settings-1" defer></script>
-    <script src="calendar.js?v=calendar-confirmation-5" defer></script>
-    <script src="app.js?v=community-calendar-1" defer></script>
+    <script src="calendar.js?v=home-dashboard-1" defer></script>
+    <script src="app.js?v=home-dashboard-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -346,21 +346,35 @@
               >
             </div>
           </div>
-          <div class="overview-top">
-            <section class="overview-panel">
-              <div class="module-heading">
-                <h2>Your household</h2>
-                <button id="overview-edit" class="primary">Edit profile</button>
-              </div>
-              <div id="overview-household"></div>
-            </section>
-            <section class="overview-panel">
+          <div class="overview-top overview-dashboard">
+            <section class="overview-panel overview-map-panel">
               <div class="module-heading"><h2 id="overview-map-title">Explore Burr Oaks</h2></div>
               <div id="overview-map" aria-label="Neighborhood map preview"></div>
               <button id="overview-open-map" class="text-link">
                 Open map <span aria-hidden="true">→</span>
               </button>
             </section>
+            <div class="overview-side">
+              <section class="overview-panel overview-household-panel">
+                <div class="module-heading">
+                  <h2>Your household</h2>
+                  <button id="overview-edit" class="primary">Edit profile</button>
+                </div>
+                <div id="overview-household"></div>
+              </section>
+              <section
+                class="overview-panel overview-events-panel"
+                aria-labelledby="overview-events-title"
+              >
+                <div class="module-heading">
+                  <h2 id="overview-events-title">Upcoming events</h2>
+                  <button id="overview-open-calendar" class="text-link">View calendar →</button>
+                </div>
+                <div id="overview-events" aria-live="polite">
+                  <p class="overview-events-empty">Loading upcoming events…</p>
+                </div>
+              </section>
+            </div>
           </div>
           <section class="overview-panel neighbor-module">
             <div class="module-heading">

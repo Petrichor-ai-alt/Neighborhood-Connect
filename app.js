@@ -74,6 +74,7 @@ function view(id) {
   });
   show('directory', !!membership && !['settings', 'calendar'].includes(id));
   if (id === 'calendar') run(openCommunityCalendar);
+  if (id === 'overview' && typeof loadOverviewEvents === 'function') run(loadOverviewEvents);
   if (id === 'settings') {
     ['join', 'pending', 'invite-panel', 'recovery'].forEach((x) => show(x, false));
     run(renderAccountSettings);

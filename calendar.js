@@ -54,6 +54,8 @@ async function ensureCalendarLibraries() {
   await calendarLibraries;
 }
 function resetCommunityCalendar() {
+  ++overviewEventsRequest;
+  $('overview-events').replaceChildren();
   clearTimeout(calendarConfirmationTimer);
   show('calendar-confirmation', false);
   $('calendar-confirmation').textContent = '';
@@ -442,6 +444,7 @@ function closeEventEditor() {
   $('add-event').focus();
 }
 function initCommunityCalendar() {
+  $('overview-open-calendar').onclick = () => view('calendar');
   $('add-event').onclick = () => openEventEditor();
   $('calendar-month').onclick = () => {
     communityCalendar?.changeView('dayGridMonth');
@@ -506,4 +509,103 @@ function initCommunityCalendar() {
       button.disabled = false;
     }
   };
+}
+
+let overviewEventsRequest = 0;
+async function loadOverviewEvents() {
+  if (!membership || !user) return;
+  const version = generation,
+    neighborhoodId = neighborhood.id,
+    request = ++overviewEventsRequest,
+    host = $('overview-events'),
+    now = new Date(),
+    until = new Date(now.getTime() + 90 * 86400000),
+    zone = calendarZone();
+  const localDay = (date) => {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date);
+    const part = (name) => parts.find((p) => p.type === name).value;
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  };
+  const current = () =>
+    version === generation &&
+    request === overviewEventsRequest &&
+    !!user &&
+    !!membership &&
+    neighborhood?.id === neighborhoodId;
+  host.innerHTML = '<p class="overview-events-empty">Loading upcoming events…</p>';
+  try {
+    const rows = checked(
+      await db.rpc('list_neighborhood_events', {
+        neighborhood: neighborhoodId,
+        range_start: now.toISOString(),
+        range_end: until.toISOString(),
+        first_day: localDay(now),
+        exclusive_last_day: localDay(new Date(until.getTime() + 86400000)),
+      }),
+    );
+    if (!current()) return;
+    const events = rows
+      .filter(
+        (row) =>
+          row.status !== 'cancelled' &&
+          (row.all_day ? row.end_date > localDay(now) : new Date(row.ends_at) > now),
+      )
+      .sort((a, b) => {
+        const stamp = (row) => (row.all_day ? row.start_date : localDay(new Date(row.starts_at)));
+        return (
+          stamp(a).localeCompare(stamp(b)) ||
+          String(a.starts_at || '').localeCompare(String(b.starts_at || ''))
+        );
+      })
+      .slice(0, 3);
+    host.replaceChildren();
+    if (!events.length) {
+      host.innerHTML =
+        '<p class="overview-events-empty">No upcoming events in the next 90 days. Make a plan with your neighbors.</p>';
+      return;
+    }
+    for (const row of events) {
+      const date = new Date(row.all_day ? row.start_date + 'T12:00:00Z' : row.starts_at);
+      const timeZone = row.all_day ? 'UTC' : zone;
+      const button = document.createElement('button');
+      button.className = 'overview-event';
+      const badge = document.createElement('span');
+      badge.className = 'overview-event-date';
+      badge.textContent = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        month: 'short',
+        day: 'numeric',
+      }).format(date);
+      const text = document.createElement('span');
+      const title = document.createElement('strong');
+      title.textContent = row.title;
+      const when = document.createElement('small');
+      when.textContent = row.all_day
+        ? 'All day'
+        : new Intl.DateTimeFormat('en-US', {
+            timeZone: zone,
+            hour: 'numeric',
+            minute: '2-digit',
+          }).format(date);
+      if (row.location) when.textContent += ' · ' + row.location;
+      text.append(title, when);
+      button.append(badge, text);
+      button.onclick = () =>
+        run(async () => {
+          view('calendar');
+          await ensureCalendarLibraries();
+          if (current()) await openEventDetail(row.id);
+        });
+      host.append(button);
+    }
+  } catch {
+    if (current())
+      host.innerHTML =
+        '<p class="overview-events-empty">Upcoming events are unavailable right now. Open the calendar to try again.</p>';
+  }
 }

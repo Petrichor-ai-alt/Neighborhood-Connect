@@ -221,7 +221,33 @@ const exec = (s) => vm.runInContext(s, ctx);
   assert.ok(ics.includes('STATUS:CANCELLED'));
   assert.equal(ics.includes('\r\nInjected:'), false);
   for (const line of ics.split('\r\n')) assert.ok(Buffer.byteLength(line, 'utf8') <= 75);
+  const savedRows = rows;
+  const tomorrow = new Date(Date.now() + 86400000).toISOString();
+  const later = new Date(Date.now() + 90000000).toISOString();
+  rows = [
+    { ...savedRows[0], starts_at: tomorrow, ends_at: later },
+    { ...savedRows[0], id: 'cancelled', status: 'cancelled', starts_at: tomorrow, ends_at: later },
+    {
+      ...savedRows[0],
+      id: 'past',
+      starts_at: '2020-01-01T00:00:00Z',
+      ends_at: '2020-01-01T01:00:00Z',
+    },
+  ];
+  await exec('loadOverviewEvents()');
+  assert.equal(document.querySelectorAll('#overview-events .overview-event').length, 1);
+  assert.equal(document.querySelector('#overview-events strong').textContent, savedRows[0].title);
+  assert.equal(document.querySelector('#overview-events script'), null);
+  assert.ok(document.querySelector('.overview-dashboard > .overview-map-panel'));
+  assert.ok(document.querySelector('.overview-side .overview-household-panel'));
+  assert.ok(document.querySelector('.overview-side .overview-events-panel'));
+  rows = [];
+  await exec('loadOverviewEvents()');
+  assert.ok(document.getElementById('overview-events').textContent.includes('No upcoming events'));
+  rows = savedRows;
   fail = true;
+  await exec('loadOverviewEvents()');
+  assert.ok(document.getElementById('overview-events').textContent.includes('unavailable'));
   await Calendar.latest.opts.events(
     info,
     () => {},

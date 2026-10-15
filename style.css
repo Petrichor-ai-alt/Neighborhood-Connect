@@ -2666,3 +2666,143 @@ button.danger {
   box-shadow: 0 6px 24px #173e2926;
   font-weight: 600;
 }
+
+/* Map-first home page, with compact household and events alongside. */
+.overview-top.overview-dashboard {
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 1fr);
+  align-items: stretch;
+}
+.overview-side {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  min-width: 0;
+}
+.overview-map-panel {
+  display: flex;
+  flex-direction: column;
+}
+.overview-map-panel #overview-map {
+  flex: 1;
+  height: auto;
+  min-height: 460px;
+}
+.overview-map-panel #overview-map #map {
+  height: 100%;
+  min-height: 460px;
+}
+.overview-household-panel .household-cover,
+.overview-household-panel .household-cover:has(.google-house-photo) {
+  height: 110px;
+  aspect-ratio: auto;
+}
+.overview-household-panel .house-photo-overview,
+.overview-household-panel .household-cover:has(.google-house-photo) .house-photo-overview {
+  height: 100%;
+}
+.overview-household-panel .household-cover .google-house-photo img {
+  height: 100%;
+  object-fit: contain;
+}
+.overview-household-panel .overview-avatar {
+  width: 58px;
+  height: 58px;
+  font-size: 21px;
+}
+.overview-household-panel .household-identity {
+  margin-top: 10px;
+  padding: 0 0 12px;
+  gap: 12px;
+}
+.overview-household-panel .household-identity > div {
+  padding-top: 0;
+}
+.overview-household-panel .household-identity h3 {
+  font-size: 19px;
+}
+.overview-household-panel .profile-prompt {
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 11px;
+}
+.overview-household-panel .profile-prompt .prompt-icon {
+  display: none;
+}
+.overview-household-panel .profile-prompt > div {
+  flex: 1 1 170px;
+}
+.overview-household-panel .profile-prompt button {
+  margin-left: 0;
+  padding: 8px 10px;
+}
+.overview-side .module-heading {
+  gap: 10px;
+}
+.overview-side .module-heading h2 {
+  font-size: 22px;
+}
+.overview-events-empty {
+  font-size: 12px;
+  margin: 0;
+}
+.overview-event {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--ink);
+}
+.overview-event + .overview-event {
+  border-top: 1px solid var(--line);
+}
+.overview-event:hover {
+  background: #f4f7f0;
+}
+.overview-event-date {
+  flex: 0 0 55px;
+  padding: 10px 5px;
+  border-radius: 7px;
+  background: #edf3e8;
+  color: #245a44;
+  text-align: center;
+  font-size: 12px;
+}
+.overview-event > span:last-child {
+  min-width: 0;
+}
+.overview-event strong,
+.overview-event small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overview-event strong {
+  font-size: 13px;
+}
+.overview-event small {
+  margin-top: 3px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+@media (max-width: 1050px) {
+  .overview-top.overview-dashboard {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .overview-top.overview-dashboard {
+    grid-template-columns: 1fr;
+  }
+  .overview-map-panel #overview-map,
+  .overview-map-panel #overview-map #map {
+    height: 320px;
+    min-height: 320px;
+  }
+}
