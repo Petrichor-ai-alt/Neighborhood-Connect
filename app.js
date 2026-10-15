@@ -447,7 +447,7 @@ function renderOverview() {
             'display_name',
           ];
   $('overview-household').innerHTML =
-    `<div class="household-cover">${householdImage(h, 'overview')}</div><div class="household-identity">${photo ? `<img class="overview-avatar" src="${esc(photo)}" alt="">` : `<span class="overview-avatar overview-initials" aria-hidden="true">${esc(initials(h))}</span>`}<div><h3>${esc(h.display_name)}</h3><p>${esc(h.address)}</p><small>${membersEnabled ? `${members.filter((p) => p.household_id === h.id).length} household members` : h.residents ? 'Residents listed on your profile' : 'Your home in ' + esc(neighborhoodName)}</small></div></div><div class="profile-prompt"><span class="prompt-icon" aria-hidden="true">✎</span><div><strong>${gap[0]}</strong><p>${gap[1]}</p></div><button id="overview-complete">${gap[2]}</button></div>`;
+    `<div class="household-summary"><div class="household-summary-photo">${householdImage(h, 'overview')}</div><div class="household-summary-details"><h3>${esc(h.display_name)}</h3><p>${esc(h.address)}</p><small>${membersEnabled ? `${members.filter((p) => p.household_id === h.id).length} household members` : h.residents ? 'Residents listed on your profile' : 'Your home in ' + esc(neighborhoodName)}</small></div></div><div class="profile-prompt"><span class="prompt-icon" aria-hidden="true">✎</span><div><strong>${gap[0]}</strong><p>${gap[1]}</p></div><button id="overview-complete">${gap[2]}</button></div>`;
   $('overview-complete').onclick = () => {
     view('profile');
     const target = gap[3] === 'upload' ? $('upload') : $('profileform').elements[gap[3]];

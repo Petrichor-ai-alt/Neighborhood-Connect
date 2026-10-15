@@ -2806,3 +2806,67 @@ button.danger {
     min-height: 320px;
   }
 }
+
+/* Compact household summary: photo beside details, with no duplicate avatar. */
+.household-summary {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 16px;
+}
+.household-summary-photo {
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.household-summary-photo .house-photo-overview {
+  width: 100%;
+  height: auto;
+  padding: 0;
+}
+.household-summary-photo .house-photo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+}
+.household-summary-photo .google-house-photo img {
+  object-fit: contain;
+}
+.household-summary-photo .google-photo-attribution {
+  position: static;
+  padding: 4px 2px 0;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.household-summary-photo .house-photo-fallback {
+  height: 78px;
+  font-size: 25px;
+}
+.household-summary-details h3 {
+  font-size: 20px;
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.household-summary-details p {
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 0 0 7px;
+  color: #63716b;
+  overflow-wrap: anywhere;
+}
+.household-summary-details small {
+  font-size: 10px;
+  color: var(--muted);
+}
+@media (max-width: 400px) {
+  .household-summary {
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .household-summary-details h3 {
+    font-size: 18px;
+  }
+}
