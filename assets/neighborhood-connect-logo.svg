@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 70">
+  <g
+    transform="translate(0 2)"
+    fill="none"
+    stroke="#123d2c"
+    stroke-width="7"
+    stroke-linejoin="round"
+  >
+    <path d="M34 27V17L50 5l16 12v10" />
+    <path
+      d="M37 43V33L20 21 4 33v17c0 9 6 12 15 12 15 0 20-17 31-17s16 17 31 17c9 0 15-3 15-12V33L80 21 63 33v10"
+    />
+  </g>
+  <g transform="translate(0 2)" fill="#bd984d">
+    <path d="M16 49V39a4 4 0 0 1 8 0v10zM46 33V23a4 4 0 0 1 8 0v10zM76 49V39a4 4 0 0 1 8 0v10z" />
+  </g>
+  <g
+    fill="#123d2c"
+    font-family="Georgia, serif"
+    font-weight="700"
+    font-size="27"
+    letter-spacing="-1"
+  >
+    <text x="112" y="30">Neighborhood</text>
+    <text x="112" y="59">Connect</text>
+  </g>
+</svg>

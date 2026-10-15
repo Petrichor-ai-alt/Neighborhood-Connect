@@ -2595,6 +2595,42 @@ button.danger {
   color: var(--ink);
   border: 1px solid var(--line);
 }
+/* Small platform branding beside the page heading. */
+#main-content .intro {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px 28px;
+}
+.intro > div {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+.intro .platform-logo {
+  grid-column: 2;
+  grid-row: 1;
+  width: 180px;
+  height: auto;
+  align-self: start;
+  margin-top: 5px;
+}
+.intro #directory-search {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
+  margin-top: 0;
+}
+@media (max-width: 600px) {
+  #main-content .intro {
+    gap: 14px;
+  }
+  .intro .platform-logo {
+    width: 112px;
+  }
+  .intro #directory-search {
+    width: 100%;
+  }
+}
 .event-form-actions {
   position: sticky;
   bottom: 0;
