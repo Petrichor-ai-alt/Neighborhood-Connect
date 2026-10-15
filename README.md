@@ -95,3 +95,7 @@ The embedded PostgreSQL tests validate cache privacy, approval/refresh permissio
 ## Private account settings
 
 Account Settings is separate from the neighbor-visible personal and household profiles. It shows the current login, email verification and neighborhood/household roles; supports confirmed login-email changes, password changes/reset emails, local/global sign-out, individual contact privacy and guarded account deletion. Run migration `007-account-settings.sql` and deploy the `delete-account` Edge Function as described in [the activation guide](supabase/account-settings.md). Existing contact visibility is preserved, and hidden personal contact values are stored only in the private schema. Account deletion keeps the household and requires another manager/administrator where applicable.
+
+## Community calendar
+
+The dedicated Calendar sidebar page offers FullCalendar Standard month and upcoming-event views. Approved residents can publish immediately, organizers can edit/cancel their own events, and administrators can manage any event in their neighborhood. Timed events use the neighborhood's IANA timezone; all-day events keep date-only boundaries. Calendar downloads use `.ics` files and do not subscribe residents to updates or email. Run [migration 008](supabase/migrations/008-community-calendar.sql) using [the activation guide](supabase/calendar.md). No new keys, Edge Functions or paid calendar features are needed. The home page remains unchanged.

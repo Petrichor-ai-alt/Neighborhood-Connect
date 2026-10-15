@@ -63,8 +63,8 @@ function view(id) {
   closePinPopup();
   if (id === 'person' && !membersEnabled) return;
   if ((!membership && id !== 'settings') || (id === 'admin' && membership.role !== 'admin')) return;
-  ['overview', 'browse', 'mapview', 'profile', 'person', 'admin', 'settings'].forEach((x) =>
-    show(x, x === id),
+  ['overview', 'browse', 'mapview', 'profile', 'person', 'admin', 'settings', 'calendar'].forEach(
+    (x) => show(x, x === id),
   );
   document.querySelectorAll('[data-view]').forEach((b) => {
     const active = b.dataset.view === id;
@@ -72,7 +72,8 @@ function view(id) {
     if (active) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
-  show('directory', !!membership && id !== 'settings');
+  show('directory', !!membership && !['settings', 'calendar'].includes(id));
+  if (id === 'calendar') run(openCommunityCalendar);
   if (id === 'settings') {
     ['join', 'pending', 'invite-panel', 'recovery'].forEach((x) => show(x, false));
     run(renderAccountSettings);
@@ -88,6 +89,7 @@ function view(id) {
       'Your household',
       'A little introduction goes a long way. Share what makes your household yours.',
     ],
+    calendar: ['Community calendar', 'Your neighborhood, coming together.'],
     settings: ['Account settings', 'Your login, security, and contact preferences.'],
     person: ['Your personal profile', 'Help your neighbors get to know you.'],
     admin: [
@@ -149,10 +151,12 @@ async function load() {
     'directory-controls',
     'persontab',
     'settings',
+    'calendar',
   ].forEach((x) => show(x, false));
   show('signout', !!user);
   show('settings-tab', !!user);
   clearAccountSettings();
+  resetCommunityCalendar();
   syncInvitePanel();
   $('page-eyebrow').textContent = `${neighborhoodName} · Your neighborhood community`;
   $('page-title').textContent = 'Welcome to your neighborhood';
@@ -995,6 +999,7 @@ db.auth.onAuthStateChange((event) => {
     );
   if (event === 'SIGNED_OUT') setTimeout(() => run(load), 0);
 });
+initCommunityCalendar();
 initAccountSettings();
 initMembersUI();
 initHouseholdPhotos();

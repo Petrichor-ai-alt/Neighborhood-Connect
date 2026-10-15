@@ -1,11 +1,12 @@
 {
   "dependencies": {
     "@electric-sql/pglite": "^0.5.9",
-    "linkedom": "^0.18.13"
+    "linkedom": "^0.18.13",
+    "luxon": "3.7.2"
   },
   "name": "neighborhood-connect-verification",
   "private": true,
   "scripts": {
-    "test": "node database-test.mjs && node frontend-test.cjs && node oauth-test.mjs && node account-delete-test.mjs"
+    "test": "node database-test.mjs && node frontend-test.cjs && node oauth-test.mjs && node account-delete-test.mjs && node calendar-database-test.mjs && node calendar-frontend-test.cjs"
   }
 }

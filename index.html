@@ -22,7 +22,8 @@
     <script src="household-photos.js?v=address-geocoding-1" defer></script>
     <script src="members.js?v=address-geocoding-1" defer></script>
     <script src="account-settings.js?v=account-settings-1" defer></script>
-    <script src="app.js?v=account-settings-1" defer></script>
+    <script src="calendar.js?v=community-calendar-1" defer></script>
+    <script src="app.js?v=community-calendar-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -106,6 +107,20 @@
             <circle cx="9" cy="7" r="3" />
             <path d="M3 21v-3a6 6 0 0 1 12 0v3zM16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2" /></svg
           ><span>Directory</span></button
+        ><button data-view="calendar">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          >
+            <rect x="3" y="5" width="18" height="16" rx="2" />
+            <path d="M16 3v4M8 3v4M3 11h18M8 15h2M14 15h2" /></svg
+          ><span>Calendar</span></button
         ><button data-view="mapview">
           <svg
             aria-hidden="true"
@@ -461,6 +476,86 @@
         </div>
       </section>
 
+      <section id="calendar" hidden aria-label="Neighborhood calendar">
+        <div class="calendar-heading">
+          <div>
+            <span class="eyebrow">Made for getting together</span>
+            <h2>Good things happen nearby.</h2>
+            <p>Make a plan, meet a neighbor, and bring your community together.</p>
+          </div>
+          <button id="add-event" class="primary">＋ Add event</button>
+        </div>
+        <div class="calendar-toolbar">
+          <p id="calendar-zone"></p>
+          <div class="calendar-switch" aria-label="Calendar view">
+            <button id="calendar-month" aria-pressed="true">Month</button
+            ><button id="calendar-upcoming" aria-pressed="false">Upcoming events</button>
+          </div>
+        </div>
+        <p id="calendar-status" role="status" aria-live="polite"></p>
+        <button id="calendar-retry" hidden>Try again</button>
+        <div class="panel calendar-surface"><div id="community-calendar"></div></div>
+        <p class="calendar-footnote">
+          Shared only with approved neighbors. Anyone in the community can add an event.
+        </p>
+      </section>
+      <dialog id="event-detail-dialog" class="event-dialog" aria-labelledby="event-detail-title">
+        <div class="event-dialog-top">
+          <span class="eyebrow">Community event</span
+          ><button id="event-detail-close" aria-label="Close event details">✕</button>
+        </div>
+        <div id="event-detail-content"></div>
+        <div id="event-detail-actions" class="settings-actions"></div>
+        <p id="event-detail-error" role="alert"></p>
+      </dialog>
+      <dialog id="event-editor-dialog" class="event-dialog" aria-labelledby="event-editor-title">
+        <div class="event-dialog-top">
+          <span class="eyebrow">Bring neighbors together</span
+          ><button id="event-editor-close" aria-label="Close event editor">✕</button>
+        </div>
+        <h2 id="event-editor-title">Add an event</h2>
+        <p id="event-editor-zone"></p>
+        <form id="event-form">
+          <label
+            >Event title<input
+              name="title"
+              required
+              maxlength="120"
+              placeholder="A block party, a book club, a little get-together…"
+          /></label>
+          <label class="settings-check"
+            ><input name="all_day" type="checkbox" /> All-day event</label
+          >
+          <div id="event-timed-fields" class="event-date-grid">
+            <label>Starts<input name="starts" type="datetime-local" required /></label
+            ><label>Ends<input name="ends" type="datetime-local" required /></label>
+          </div>
+          <div id="event-day-fields" class="event-date-grid" hidden>
+            <label>First day<input name="first_day" type="date" /></label
+            ><label>Last day (inclusive)<input name="last_day" type="date" /></label>
+          </div>
+          <label
+            >Location<input
+              name="location"
+              maxlength="300"
+              placeholder="Where should neighbors meet?"
+          /></label>
+          <label
+            >Details<textarea
+              name="description"
+              rows="5"
+              maxlength="5000"
+              placeholder="What to expect, what to bring, and anything else neighbors should know."
+            ></textarea>
+          </label>
+          <p class="calendar-footnote">
+            Your event will appear immediately for approved residents. No email notifications are
+            sent.
+          </p>
+          <p id="event-form-error" role="alert"></p>
+          <button id="event-save" class="primary">Publish event</button>
+        </form>
+      </dialog>
       <section id="settings" hidden aria-label="Private account settings">
         <div class="settings-summary panel">
           <span class="eyebrow">Only you can see these settings</span>

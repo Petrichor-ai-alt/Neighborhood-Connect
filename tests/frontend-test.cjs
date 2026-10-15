@@ -312,6 +312,7 @@ async function setup({
   vm.runInContext(fs.readFileSync(root + 'household-photos.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'members.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'account-settings.js', 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(root + 'calendar.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'app.js', 'utf8').replace('\nrun(load);', ''), ctx);
   vm.runInContext('loadMap=async()=>{}', ctx);
   await vm.runInContext('load()', ctx);
