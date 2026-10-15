@@ -1,4 +1,14 @@
 'use strict';
+let calendarConfirmationTimer = null;
+function calendarConfirmation(message) {
+  clearTimeout(calendarConfirmationTimer);
+  $('calendar-confirmation').textContent = message;
+  show('calendar-confirmation', true);
+  calendarConfirmationTimer = setTimeout(() => {
+    show('calendar-confirmation', false);
+    $('calendar-confirmation').textContent = '';
+  }, 4000);
+}
 let communityCalendar = null,
   calendarLibraries = null,
   calendarRequest = 0,
@@ -44,6 +54,9 @@ async function ensureCalendarLibraries() {
   await calendarLibraries;
 }
 function resetCommunityCalendar() {
+  clearTimeout(calendarConfirmationTimer);
+  show('calendar-confirmation', false);
+  $('calendar-confirmation').textContent = '';
   ++calendarRequest;
   calendarReady = false;
   calendarEditing = null;
@@ -247,6 +260,7 @@ async function openEventDetail(id) {
             if (version !== generation) return;
             $('event-detail-dialog').close();
             communityCalendar?.refetchEvents();
+            calendarConfirmation('Event cancelled.');
           } catch (error) {
             $('event-detail-error').textContent = error.message || 'Unable to cancel this event.';
           } finally {
@@ -484,6 +498,7 @@ function initCommunityCalendar() {
       if (version !== generation) return;
       $('event-editor-dialog').close();
       communityCalendar?.refetchEvents();
+      calendarConfirmation(calendarEditing ? 'Event updated.' : 'Event added to the calendar.');
     } catch (error) {
       if (version === generation)
         $('event-form-error').textContent = error.message || 'Unable to save this event.';

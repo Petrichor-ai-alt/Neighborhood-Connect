@@ -178,6 +178,15 @@ const exec = (s) => vm.runInContext(s, ctx);
   );
   assert.equal(document.getElementById('event-editor-dialog').open, false);
   assert.equal(notices.length, 0, 'Saving events must not create a global alert.');
+  assert.equal(
+    document.getElementById('calendar-confirmation').textContent,
+    'Event added to the calendar.',
+  );
+  assert.equal(document.getElementById('calendar-confirmation').hidden, false);
+  assert.ok(document.querySelector('#calendar #calendar-confirmation'));
+  await new Promise((resolve) => setTimeout(resolve, 4100));
+  assert.equal(document.getElementById('calendar-confirmation').hidden, true);
+  assert.equal(document.getElementById('calendar-confirmation').textContent, '');
   await exec("openEventDetail('event1')");
   assert.equal(document.getElementById('event-detail-content').querySelector('script'), null);
   assert.equal(document.getElementById('event-detail-title').textContent, rows[0].title);
