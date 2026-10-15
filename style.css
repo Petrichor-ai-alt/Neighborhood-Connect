@@ -2371,29 +2371,11 @@ button.danger {
 /* A dedicated community calendar; no changes to the home-page layout. */
 #calendar {
   max-width: 1400px;
+  margin-inline: auto;
 }
-.calendar-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 8px 0 22px;
-}
-.calendar-heading h2 {
-  font:
-    700 clamp(25px, 3vw, 38px)/1.15 Georgia,
-    serif;
-  color: #183a2b;
-  margin: 10px 0;
-  letter-spacing: -0.025em;
-}
-.calendar-heading p,
 .calendar-toolbar p {
   color: var(--muted);
   margin: 0;
-}
-.calendar-heading > button {
-  flex-shrink: 0;
 }
 .calendar-toolbar {
   display: flex;
@@ -2426,6 +2408,9 @@ button.danger {
   box-shadow: 0 1px 4px #14271912;
 }
 .calendar-surface {
+  width: 100%;
+  max-width: none;
+  margin-inline: auto;
   padding: 22px;
   overflow: hidden;
 }
@@ -2549,11 +2534,6 @@ button.danger {
   color: #9b3028;
 }
 @media (max-width: 700px) {
-  .calendar-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 12px;
-  }
   .calendar-toolbar {
     align-items: flex-start;
     flex-direction: column;

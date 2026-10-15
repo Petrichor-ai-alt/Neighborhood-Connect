@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=neighborhood-connect-brand-1" />
+    <link rel="stylesheet" href="style.css?v=calendar-layout-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -484,20 +484,13 @@
       </section>
 
       <section id="calendar" hidden aria-label="Neighborhood calendar">
-        <div class="calendar-heading">
-          <div>
-            <span class="eyebrow">Made for getting together</span>
-            <h2>Good things happen nearby.</h2>
-            <p>Make a plan, meet a neighbor, and bring your community together.</p>
-          </div>
-          <button id="add-event" class="primary">＋ Add event</button>
-        </div>
         <div class="calendar-toolbar">
           <p id="calendar-zone"></p>
           <div class="calendar-switch" aria-label="Calendar view">
             <button id="calendar-month" aria-pressed="true">Month</button
             ><button id="calendar-upcoming" aria-pressed="false">Upcoming events</button>
           </div>
+          <button id="add-event" class="primary">＋ Add event</button>
         </div>
         <p id="calendar-status" role="status" aria-live="polite"></p>
         <button id="calendar-retry" hidden>Try again</button>
