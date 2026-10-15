@@ -2649,3 +2649,20 @@ button.danger {
   padding: 14px 0 4px;
   background: var(--surface);
 }
+
+/* Calendar-only confirmation stays visible even when the page is scrolled. */
+#calendar-confirmation {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 35;
+  max-width: min(360px, calc(100vw - 40px));
+  margin: 0;
+  padding: 14px 20px;
+  border: 1px solid #abc9ae;
+  border-radius: 10px;
+  background: #e7f3e8;
+  color: #173e29;
+  box-shadow: 0 6px 24px #173e2926;
+  font-weight: 600;
+}
