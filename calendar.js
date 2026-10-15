@@ -247,7 +247,6 @@ async function openEventDetail(id) {
             if (version !== generation) return;
             $('event-detail-dialog').close();
             communityCalendar?.refetchEvents();
-            notice('Event cancelled.');
           } catch (error) {
             $('event-detail-error').textContent = error.message || 'Unable to cancel this event.';
           } finally {
@@ -485,7 +484,6 @@ function initCommunityCalendar() {
       if (version !== generation) return;
       $('event-editor-dialog').close();
       communityCalendar?.refetchEvents();
-      notice(calendarEditing ? 'Event updated.' : 'Your event is on the community calendar.');
     } catch (error) {
       if (version === generation)
         $('event-form-error').textContent = error.message || 'Unable to save this event.';

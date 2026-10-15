@@ -36,6 +36,7 @@ let rows = [
   },
 ];
 const calls = [];
+const notices = [];
 let fail = false,
   successRows = [];
 const info = { startStr: '2026-11-01T00:00:00-05:00', endStr: '2026-12-01T00:00:00-06:00' };
@@ -91,7 +92,7 @@ const ctx = vm.createContext({
     if (r.error) throw r.error;
     return r.data;
   },
-  notice: () => {},
+  notice: (message) => notices.push(message),
   confirm: () => true,
   run: async (fn) => fn(),
   db: {
@@ -176,6 +177,7 @@ const exec = (s) => vm.runInContext(s, ctx);
     'Holiday walk',
   );
   assert.equal(document.getElementById('event-editor-dialog').open, false);
+  assert.equal(notices.length, 0, 'Saving events must not create a global alert.');
   await exec("openEventDetail('event1')");
   assert.equal(document.getElementById('event-detail-content').querySelector('script'), null);
   assert.equal(document.getElementById('event-detail-title').textContent, rows[0].title);
