@@ -3102,6 +3102,15 @@ button.danger {
 .discussion-replies-title {
   margin: 24px 0 14px;
 }
+#discussion-back {
+  margin-bottom: 18px;
+  padding: 10px 16px;
+  font-weight: 600;
+  color: var(--accent);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
 .discussion-reply {
   padding: 18px 22px;
   background: #fff;

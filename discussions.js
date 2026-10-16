@@ -43,6 +43,7 @@ function resetDiscussions() {
   $('discussion-form-error').textContent = '';
   $('discussion-confirmation').textContent = '';
   show('discussion-confirmation', false);
+  show('discussion-back', false);
 }
 function discussionDate(value) {
   return new Intl.DateTimeFormat('en-US', {
@@ -78,6 +79,7 @@ async function loadDiscussionList(more = false) {
   discussionThread = null;
   show('discussion-list-view', true);
   show('discussion-detail-view', false);
+  show('discussion-back', false);
   show('discussion-filter', true);
   $('discussion-error').textContent = '';
   $('discussion-status').textContent = 'Loading discussions…';
@@ -156,6 +158,7 @@ async function openDiscussionThread(id, more = false) {
   $('discussion-status').textContent = 'Loading conversation…';
   show('discussion-list-view', false);
   show('discussion-detail-view', true);
+  show('discussion-back', true);
   show('discussion-filter', false);
   $('discussion-replies-more').disabled = true;
   if (!more) {

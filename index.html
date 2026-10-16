@@ -12,12 +12,12 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=discussions-1" />
+    <link rel="stylesheet" href="style.css?v=discussions-back-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
     ></script>
-    <script src="discussions.js?v=discussions-1" defer></script>
+    <script src="discussions.js?v=discussions-back-1" defer></script>
     <script src="config.js" defer></script>
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=photo-priority-2" defer></script>
@@ -541,6 +541,7 @@
       </section>
 
       <section id="discussions" hidden aria-label="Neighborhood discussions">
+        <button id="discussion-back" type="button" hidden>← Back to all discussions</button>
         <div class="discussion-toolbar">
           <label id="discussion-filter"
             >Category<select id="discussion-category">
@@ -563,7 +564,6 @@
           <button id="discussion-more" hidden>Load more discussions</button>
         </div>
         <div id="discussion-detail-view" hidden>
-          <button id="discussion-back" class="text-link">← All discussions</button>
           <article class="panel discussion-post">
             <div id="discussion-content"></div>
             <div id="discussion-actions" class="discussion-post-actions"></div>
