@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=settings-menu-1" />
+    <link rel="stylesheet" href="style.css?v=password-reset-screen-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -22,9 +22,9 @@
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=photo-priority-2" defer></script>
     <script src="members.js?v=progressive-startup-1" defer></script>
-    <script src="account-settings.js?v=settings-labels-1" defer></script>
+    <script src="account-settings.js?v=password-reset-screen-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
-    <script src="app.js?v=discussions-1" defer></script>
+    <script src="app.js?v=password-reset-screen-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -284,6 +284,29 @@
           </div>
           <button id="reset" class="textbutton" type="button">Forgot password?</button>
         </form>
+      </section>
+      <section
+        id="password-reset"
+        class="panel auth"
+        aria-labelledby="password-reset-heading"
+        hidden
+      >
+        <button id="password-reset-back" class="text-link" type="button">← Back to sign in</button>
+        <h2 id="password-reset-heading">Reset your password</h2>
+        <p>Enter your sign-in email and we’ll send you a link to choose a new password.</p>
+        <form id="password-reset-form">
+          <label
+            >Sign-in email<input
+              name="email"
+              type="email"
+              autocomplete="email"
+              maxlength="200"
+              required
+          /></label>
+          <button id="password-reset-send" class="primary" type="submit">Send reset link</button>
+        </form>
+        <p id="password-reset-status" role="status" aria-live="polite"></p>
+        <p id="password-reset-error" role="alert"></p>
       </section>
       <section id="recovery" class="panel" hidden>
         <h2>Set a new password</h2>

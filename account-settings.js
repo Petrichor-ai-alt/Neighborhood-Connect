@@ -175,14 +175,7 @@ function initAccountSettings() {
     checked(await db.auth.updateUser({ password: values.password }));
     notice('Password updated. You can also sign out all devices in Signed-in sessions.');
   });
-  $('account-reset-password').onclick = () =>
-    run(async () => {
-      const fresh = checked(await db.auth.getUser()).user;
-      checked(
-        await db.auth.resetPasswordForEmail(fresh.email, { redirectTo: cfg.authRedirectUrl }),
-      );
-      notice('Check your sign-in email for the password reset link.');
-    });
+  $('account-reset-password').onclick = () => openPasswordReset('settings');
   accountForm('account-contacts-form', async (values, form) => {
     if (!accountSettingsReady) throw Error('Reload your account settings first.');
     checked(

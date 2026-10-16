@@ -127,6 +127,7 @@ function setSearchOpen(open, focus = true) {
 }
 function view(id) {
   if (!user) return;
+  clearPasswordReset();
   closePinPopup();
   if (id === 'person' && !membersEnabled) return;
   if ((!membership && id !== 'settings') || (id === 'admin' && membership.role !== 'admin')) return;
@@ -234,6 +235,7 @@ function view(id) {
 }
 async function load() {
   const version = ++generation;
+  clearPasswordReset();
   const trace = beginStartupTiming();
   show('startup-loading', true);
   closePinPopup();
@@ -1128,13 +1130,73 @@ $('signup').onclick = () =>
       );
     } else notice('Check your email to confirm your account, then sign in.');
   });
-$('reset').onclick = () =>
-  run(async () => {
-    const email = $('authform').elements.email;
-    if (!email.value || !email.checkValidity()) throw new Error('Enter your email address first.');
-    checked(await db.auth.resetPasswordForEmail(email.value, { redirectTo: cfg.authRedirectUrl }));
-    notice('If an account exists, a password reset email will be sent.');
+let passwordResetOrigin = 'auth',
+  passwordResetRequest = 0;
+function clearPasswordReset() {
+  ++passwordResetRequest;
+  show('password-reset', false);
+  $('password-reset-form').elements.email.value = '';
+  $('password-reset-status').textContent = '';
+  $('password-reset-error').textContent = '';
+  $('password-reset-send').disabled = false;
+}
+function openPasswordReset(origin = 'auth') {
+  if (origin === 'settings' && !user) return;
+  clearPasswordReset();
+  passwordResetOrigin = origin;
+  $('password-reset-form').elements.email.value =
+    origin === 'settings' ? user.email || '' : $('authform').elements.email.value;
+  $('authform').elements.password.value = '';
+  document.querySelectorAll('#settings input[type="password"]').forEach((input) => {
+    input.value = '';
   });
+  show('auth', false);
+  show('settings', false);
+  show('password-reset', true);
+  $('password-reset-back').textContent =
+    origin === 'settings' ? '← Back to password settings' : '← Back to sign in';
+  notice('');
+  $('password-reset-form').elements.email.focus();
+}
+$('reset').onclick = () => openPasswordReset();
+$('password-reset-back').onclick = () => {
+  const origin = passwordResetOrigin;
+  clearPasswordReset();
+  if (origin === 'settings' && user) {
+    view('settings');
+    showAccountSettingsPage('password');
+  } else {
+    show('auth', true);
+    $('authform').elements.email.focus();
+  }
+};
+$('password-reset-form').onsubmit = async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  if (!form.reportValidity() || $('password-reset-send').disabled) return;
+  const request = ++passwordResetRequest,
+    version = generation;
+  $('password-reset-send').disabled = true;
+  $('password-reset-status').textContent = 'Sending reset link…';
+  $('password-reset-error').textContent = '';
+  try {
+    checked(
+      await db.auth.resetPasswordForEmail(form.elements.email.value.trim(), {
+        redirectTo: cfg.authRedirectUrl,
+      }),
+    );
+    if (request !== passwordResetRequest || version !== generation) return;
+    $('password-reset-status').textContent =
+      'If an account exists for this email, a password reset link will be sent. Check your inbox and spam folder.';
+  } catch (error) {
+    if (request !== passwordResetRequest || version !== generation) return;
+    $('password-reset-status').textContent = '';
+    $('password-reset-error').textContent =
+      error.message || 'Could not send the reset link. Please try again.';
+  } finally {
+    if (request === passwordResetRequest) $('password-reset-send').disabled = false;
+  }
+};
 $('passwordform').onsubmit = (e) => {
   e.preventDefault();
   run(async () => {
@@ -1318,6 +1380,7 @@ document.addEventListener('keydown', (e) => {
 });
 db.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY') {
+    clearPasswordReset();
     show('recovery', true);
     show('auth', false);
   }

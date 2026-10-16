@@ -2335,6 +2335,12 @@ footer a {
 #settings-menu-back {
   margin: 4px 0 24px;
 }
+#password-reset-back {
+  margin-bottom: 16px;
+}
+#password-reset-error {
+  color: #9b3028;
+}
 .settings-page {
   max-width: 620px;
 }

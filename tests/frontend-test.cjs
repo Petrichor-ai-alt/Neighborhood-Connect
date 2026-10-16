@@ -1047,3 +1047,70 @@ async function setup({
   console.error(error);
   process.exitCode = 1;
 });
+
+(async () => {
+  const { ctx, document, calls } = await setup({ signed: false });
+  const $ = (id) => document.getElementById(id);
+  $('authform').elements.email.value = 'example@test.invalid';
+  $('authform').elements.password.value = 'unsaved-password';
+  $('reset').onclick();
+  assert.equal($('auth').hidden, true);
+  assert.equal($('password-reset').hidden, false);
+  assert.equal($('password-reset-form').elements.email.value, 'example@test.invalid');
+  assert.equal($('authform').elements.password.value, '');
+  assert.equal(
+    calls.some((c) => c.name === 'resetPasswordForEmail'),
+    false,
+  );
+  const form = $('password-reset-form');
+  await form.onsubmit({ preventDefault() {}, target: form });
+  assert.equal(
+    calls.find((c) => c.name === 'resetPasswordForEmail').args.email,
+    'example@test.invalid',
+  );
+  assert.ok($('password-reset-status').textContent.includes('If an account exists'));
+  assert.equal($('password-reset-send').disabled, false);
+  $('password-reset-back').onclick();
+  assert.equal($('auth').hidden, false);
+  assert.equal($('password-reset').hidden, true);
+  assert.equal(form.elements.email.value, '');
+  assert.equal($('password-reset-status').textContent, '');
+  $('reset').onclick();
+  let release;
+  ctx.pendingReset = () =>
+    new Promise((resolve) => {
+      release = resolve;
+    });
+  vm.runInContext('db.auth.resetPasswordForEmail = pendingReset', ctx);
+  const pending = form.onsubmit({ preventDefault() {}, target: form });
+  assert.equal($('password-reset-send').disabled, true);
+  $('password-reset-back').onclick();
+  release({ data: {} });
+  await pending;
+  assert.equal($('password-reset-status').textContent, '');
+  const signed = await setup();
+  vm.runInContext("view('settings')", signed.ctx);
+  await new Promise((r) => setTimeout(r, 5));
+  signed.document.getElementById('account-reset-password').onclick();
+  assert.equal(signed.document.getElementById('settings').hidden, true);
+  assert.equal(signed.document.getElementById('password-reset').hidden, false);
+  assert.equal(
+    signed.document.getElementById('password-reset-form').elements.email.value,
+    'example@test.invalid',
+  );
+  assert.equal(
+    signed.calls.some((c) => c.name === 'resetPasswordForEmail'),
+    false,
+  );
+  signed.document.getElementById('password-reset-back').onclick();
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(signed.document.getElementById('settings').hidden, false);
+  assert.equal(signed.document.getElementById('account-password').hidden, false);
+  assert.equal(signed.document.getElementById('settings-menu').hidden, true);
+  console.log(
+    'PASS: dedicated password reset from sign-in/settings, email prefill, explicit send, inline confirmation, back navigation, password clearing and stale request isolation.',
+  );
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
