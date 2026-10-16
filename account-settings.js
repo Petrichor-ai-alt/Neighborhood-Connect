@@ -1,7 +1,27 @@
 'use strict';
 let accountSettingsReady = false;
+function showAccountSettingsPage(page = 'menu', focus = true) {
+  if (!['menu', 'email', 'password', 'contacts', 'sessions', 'delete'].includes(page)) return;
+  document.querySelectorAll('[data-account-settings-page]').forEach((section) => {
+    section.hidden = section.dataset.accountSettingsPage !== page;
+  });
+  show('settings-menu', page === 'menu');
+  show('settings-detail', page !== 'menu');
+  document.querySelectorAll('#settings input[type="password"]').forEach((input) => {
+    input.value = '';
+  });
+  $('account-delete-form').elements.confirmation.value = '';
+  if (focus) {
+    const target =
+      page === 'menu'
+        ? document.querySelector('[data-account-page]')
+        : $(`account-${page}-heading`);
+    target?.focus();
+  }
+}
 function clearAccountSettings() {
   accountSettingsReady = false;
+  showAccountSettingsPage('menu', false);
   [
     'account-email-form',
     'account-password-form',
@@ -28,11 +48,12 @@ function clearAccountSettings() {
   show('account-contacts-form', false);
   show('account-delete-form', false);
 }
-async function renderAccountSettings() {
+async function renderAccountSettings(page = 'menu') {
   if (!user) return;
   const version = generation,
     identity = user.id;
   clearAccountSettings();
+  showAccountSettingsPage(page, false);
   const fresh = checked(await db.auth.getUser()).user;
   if (version !== generation || identity !== user?.id || $('settings').hidden) return;
   user = fresh;
@@ -122,6 +143,13 @@ async function accountSignOut(scope) {
   );
 }
 function initAccountSettings() {
+  document.querySelectorAll('[data-account-page]').forEach((link) => {
+    link.onclick = (event) => {
+      event.preventDefault();
+      if (user) showAccountSettingsPage(link.dataset.accountPage);
+    };
+  });
+  $('settings-menu-back').onclick = () => showAccountSettingsPage();
   $('settings-back').onclick = () => (membership ? view('overview') : run(load));
   accountForm('account-email-form', async (values, form) => {
     if (values.email.trim().toLowerCase() === user.email.toLowerCase())
@@ -134,7 +162,7 @@ function initAccountSettings() {
       ),
     );
     form.elements.email.value = '';
-    await renderAccountSettings();
+    await renderAccountSettings('email');
     notice(
       'Follow the email confirmation instructions to finish changing your login email. Your directory contact email is unchanged.',
     );
@@ -145,7 +173,7 @@ function initAccountSettings() {
     if (values.password === values.current_password) throw Error('Choose a different password.');
     await verifyAccountPassword(values.current_password);
     checked(await db.auth.updateUser({ password: values.password }));
-    notice('Password updated. You can also sign out all devices below.');
+    notice('Password updated. You can also sign out all devices in Signed-in sessions.');
   });
   $('account-reset-password').onclick = () =>
     run(async () => {

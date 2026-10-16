@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=discussions-back-1" />
+    <link rel="stylesheet" href="style.css?v=settings-menu-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -22,7 +22,7 @@
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=photo-priority-2" defer></script>
     <script src="members.js?v=progressive-startup-1" defer></script>
-    <script src="account-settings.js?v=account-settings-1" defer></script>
+    <script src="account-settings.js?v=settings-menu-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
     <script src="app.js?v=discussions-1" defer></script>
   </head>
@@ -724,23 +724,188 @@
           </dl>
           <button id="settings-back" class="text-link">Back to community</button>
         </div>
-        <div class="settings-grid">
-          <section class="panel">
-            <h2>Login email</h2>
+        <nav id="settings-menu" class="settings-menu" aria-label="Account settings">
+          <section class="settings-menu-group">
+            <h2>Sign-in and security</h2>
+            <a href="#account-email" data-account-page="email"
+              ><span>Login email</span><span aria-hidden="true">›</span></a
+            >
+            <a href="#account-password" data-account-page="password"
+              ><span>Password</span><span aria-hidden="true">›</span></a
+            >
+            <a href="#account-sessions" data-account-page="sessions"
+              ><span>Signed-in sessions</span><span aria-hidden="true">›</span></a
+            >
+          </section>
+          <section class="settings-menu-group">
+            <h2>Privacy</h2>
+            <a href="#account-contacts" data-account-page="contacts"
+              ><span>Contact privacy</span><span aria-hidden="true">›</span></a
+            >
+          </section>
+          <section class="settings-menu-group">
+            <h2>Account</h2>
+            <a href="#account-delete" data-account-page="delete" class="settings-delete-link"
+              ><span>Delete your account</span><span aria-hidden="true">›</span></a
+            >
+          </section>
+        </nav>
+        <div id="settings-detail" hidden>
+          <button id="settings-menu-back" type="button">← Account settings</button>
+          <div class="settings-pages">
+            <section
+              id="account-email"
+              class="settings-page"
+              data-account-settings-page="email"
+              aria-labelledby="account-email-heading"
+              hidden
+            >
+              <h2 id="account-email-heading" tabindex="-1">Login email</h2>
+              <p>
+                Your sign-in address is private. Changing it does not change your directory contact
+                email.
+              </p>
+              <p id="settings-pending-email" hidden></p>
+              <form id="account-email-form">
+                <label
+                  >New login email<input
+                    name="email"
+                    type="email"
+                    required
+                    maxlength="200"
+                    autocomplete="email"
+                /></label>
+                <label
+                  >Current password<input
+                    name="current_password"
+                    type="password"
+                    required
+                    autocomplete="current-password"
+                /></label>
+                <button class="primary">Send confirmation</button>
+              </form>
+              <p class="settings-note">
+                Follow the confirmation email instructions. Your current login email stays active
+                until the change is confirmed.
+              </p>
+            </section>
+            <section
+              id="account-password"
+              class="settings-page"
+              data-account-settings-page="password"
+              aria-labelledby="account-password-heading"
+              hidden
+            >
+              <h2 id="account-password-heading" tabindex="-1">Password</h2>
+              <p>Choose a password you do not use elsewhere.</p>
+              <form id="account-password-form">
+                <label
+                  >Current password<input
+                    name="current_password"
+                    type="password"
+                    required
+                    autocomplete="current-password"
+                /></label>
+                <label
+                  >New password<input
+                    name="password"
+                    type="password"
+                    required
+                    minlength="12"
+                    autocomplete="new-password"
+                    aria-describedby="password-help"
+                /></label>
+                <p id="password-help" class="settings-note">Use at least 12 characters.</p>
+                <label
+                  >Confirm new password<input
+                    name="confirm_password"
+                    type="password"
+                    required
+                    minlength="12"
+                    autocomplete="new-password"
+                /></label>
+                <button class="primary">Update password</button>
+              </form>
+              <button id="account-reset-password" class="text-link">
+                Email me a password reset link
+              </button>
+            </section>
+            <section
+              id="account-contacts"
+              class="settings-page"
+              data-account-settings-page="contacts"
+              aria-labelledby="account-contacts-heading"
+              hidden
+            >
+              <h2 id="account-contacts-heading" tabindex="-1">Contact privacy</h2>
+              <p>
+                Choose what approved neighbors can see on your individual profile. Shared household
+                contact details are managed in My Household.
+              </p>
+              <p id="account-contacts-status">Loading your contact settings…</p>
+              <form id="account-contacts-form" hidden>
+                <label
+                  >Directory contact email<input
+                    name="contact_email"
+                    type="email"
+                    maxlength="200"
+                    autocomplete="email"
+                /></label>
+                <label class="settings-check"
+                  ><input name="share_email" type="checkbox" /> Show my email to approved
+                  neighbors</label
+                >
+                <label
+                  >Personal phone<input
+                    name="contact_phone"
+                    type="tel"
+                    maxlength="40"
+                    autocomplete="tel"
+                /></label>
+                <label class="settings-check"
+                  ><input name="share_phone" type="checkbox" /> Show my phone to approved
+                  neighbors</label
+                >
+                <button class="primary">Save contact preferences</button>
+              </form>
+            </section>
+            <section
+              id="account-sessions"
+              class="settings-page"
+              data-account-settings-page="sessions"
+              aria-labelledby="account-sessions-heading"
+              hidden
+            >
+              <h2 id="account-sessions-heading" tabindex="-1">Signed-in sessions</h2>
+              <p>Sign out on this device, or end your sessions across all devices.</p>
+              <div class="settings-actions">
+                <button id="account-signout-local">Sign out here</button
+                ><button id="account-signout-all">Sign out all devices</button>
+              </div>
+              <p class="settings-note">
+                Other devices may keep access briefly until their current access token expires.
+              </p>
+            </section>
+          </div>
+          <section
+            id="account-delete"
+            class="settings-page settings-delete"
+            data-account-settings-page="delete"
+            aria-labelledby="account-delete-heading"
+            hidden
+          >
+            <h2 id="account-delete-heading" tabindex="-1">Delete your account</h2>
             <p>
-              Your sign-in address is private. Changing it does not change your directory contact
-              email.
+              This permanently removes your login, individual profiles, resident requests, and
+              photos uploaded by this account. Your household, its other members, and shared
+              household details remain. Shared photos you uploaded will also be removed.
             </p>
-            <p id="settings-pending-email" hidden></p>
-            <form id="account-email-form">
-              <label
-                >New login email<input
-                  name="email"
-                  type="email"
-                  required
-                  maxlength="200"
-                  autocomplete="email"
-              /></label>
+            <p>
+              Before deleting, give another household login manager access in My Household. A
+              neighborhood must keep another administrator too.
+            </p>
+            <p id="account-delete-status">Loading account deletion options…</p>
+            <form id="account-delete-form" hidden>
               <label
                 >Current password<input
                   name="current_password"
@@ -748,123 +913,17 @@
                   required
                   autocomplete="current-password"
               /></label>
-              <button class="primary">Send confirmation</button>
-            </form>
-            <p class="settings-note">
-              Follow the confirmation email instructions. Your current login email stays active
-              until the change is confirmed.
-            </p>
-          </section>
-          <section class="panel">
-            <h2>Password</h2>
-            <p>Choose a password you do not use elsewhere.</p>
-            <form id="account-password-form">
               <label
-                >Current password<input
-                  name="current_password"
-                  type="password"
+                >Type DELETE to confirm<input
+                  name="confirmation"
                   required
-                  autocomplete="current-password"
+                  pattern="DELETE"
+                  autocomplete="off"
               /></label>
-              <label
-                >New password<input
-                  name="password"
-                  type="password"
-                  required
-                  minlength="12"
-                  autocomplete="new-password"
-                  aria-describedby="password-help"
-              /></label>
-              <p id="password-help" class="settings-note">Use at least 12 characters.</p>
-              <label
-                >Confirm new password<input
-                  name="confirm_password"
-                  type="password"
-                  required
-                  minlength="12"
-                  autocomplete="new-password"
-              /></label>
-              <button class="primary">Update password</button>
+              <button class="danger">Permanently delete my account</button>
             </form>
-            <button id="account-reset-password" class="text-link">
-              Email me a password reset link
-            </button>
-          </section>
-          <section class="panel">
-            <h2>Contact privacy</h2>
-            <p>
-              Choose what approved neighbors can see on your individual profile. Shared household
-              contact details are managed in My Household.
-            </p>
-            <p id="account-contacts-status">Loading your contact settings…</p>
-            <form id="account-contacts-form" hidden>
-              <label
-                >Directory contact email<input
-                  name="contact_email"
-                  type="email"
-                  maxlength="200"
-                  autocomplete="email"
-              /></label>
-              <label class="settings-check"
-                ><input name="share_email" type="checkbox" /> Show my email to approved
-                neighbors</label
-              >
-              <label
-                >Personal phone<input
-                  name="contact_phone"
-                  type="tel"
-                  maxlength="40"
-                  autocomplete="tel"
-              /></label>
-              <label class="settings-check"
-                ><input name="share_phone" type="checkbox" /> Show my phone to approved
-                neighbors</label
-              >
-              <button class="primary">Save contact preferences</button>
-            </form>
-          </section>
-          <section class="panel">
-            <h2>Signed-in sessions</h2>
-            <p>Sign out on this device, or end your sessions across all devices.</p>
-            <div class="settings-actions">
-              <button id="account-signout-local">Sign out here</button
-              ><button id="account-signout-all">Sign out all devices</button>
-            </div>
-            <p class="settings-note">
-              Other devices may keep access briefly until their current access token expires.
-            </p>
           </section>
         </div>
-        <section class="panel settings-delete">
-          <h2>Delete your account</h2>
-          <p>
-            This permanently removes your login, individual profiles, resident requests, and photos
-            uploaded by this account. Your household, its other members, and shared household
-            details remain. Shared photos you uploaded will also be removed.
-          </p>
-          <p>
-            Before deleting, give another household login manager access in My Household. A
-            neighborhood must keep another administrator too.
-          </p>
-          <p id="account-delete-status">Loading account deletion options…</p>
-          <form id="account-delete-form" hidden>
-            <label
-              >Current password<input
-                name="current_password"
-                type="password"
-                required
-                autocomplete="current-password"
-            /></label>
-            <label
-              >Type DELETE to confirm<input
-                name="confirmation"
-                required
-                pattern="DELETE"
-                autocomplete="off"
-            /></label>
-            <button class="danger">Permanently delete my account</button>
-          </form>
-        </section>
       </section>
     </main>
     <footer>

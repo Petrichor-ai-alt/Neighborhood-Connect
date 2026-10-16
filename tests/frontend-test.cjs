@@ -704,6 +704,27 @@ async function setup({
     false,
   );
   assert.equal(document.getElementById('account-delete-form').hidden, true);
+  assert.equal(document.getElementById('settings-menu').hidden, false);
+  assert.equal(document.getElementById('settings-detail').hidden, true);
+  for (const page of ['email', 'password', 'contacts', 'sessions', 'delete']) {
+    document.querySelector(`[data-account-page="${page}"]`).onclick({ preventDefault() {} });
+    assert.equal(document.getElementById('settings-menu').hidden, true);
+    assert.equal(document.getElementById('settings-detail').hidden, false);
+    assert.equal(document.getElementById(`account-${page}`).hidden, false);
+    assert.equal(document.querySelectorAll('[data-account-settings-page]:not([hidden])').length, 1);
+    assert.equal(document.getElementById('settings-email').textContent, 'example@test.invalid');
+  }
+  document.getElementById('account-delete-form').elements.confirmation.value = 'DELETE';
+  document.getElementById('account-password-form').elements.current_password.value = 'unsaved';
+  document.getElementById('settings-menu-back').onclick();
+  assert.equal(document.getElementById('settings-menu').hidden, false);
+  assert.equal(document.getElementById('settings-detail').hidden, true);
+  assert.equal(document.getElementById('account-delete-form').elements.confirmation.value, '');
+  assert.equal(
+    document.getElementById('account-password-form').elements.current_password.value,
+    '',
+  );
+  document.querySelector('[data-account-page="password"]').onclick({ preventDefault() {} });
   const form = document.getElementById('account-password-form');
   form.elements.current_password.value = 'current-pass';
   form.elements.password.value = 'new-password-long';
