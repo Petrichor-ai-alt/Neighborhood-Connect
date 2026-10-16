@@ -84,6 +84,8 @@ function initHouseholdPhotos() {
         );
         households = households.map((h) => (h.id === updated.id ? updated : h));
         failedStreetViews.delete(updated.id);
+        invalidateHouseholdPhoto(updated.id);
+        await refreshHouseholdPhoto(updated.id);
         render();
         fillHouseholdPhotoControls();
         notice('Household photo preference saved.');

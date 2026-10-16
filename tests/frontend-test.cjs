@@ -11,6 +11,8 @@ async function setup({
   geocoding = false,
   beforeLoad,
   waitForLoad = true,
+  homeCount = 1,
+  photoFiles = [],
 } = {}) {
   const { window, document } = parseHTML(fs.readFileSync(root + 'index.html', 'utf8'));
   Object.defineProperty(window.HTMLSelectElement.prototype, 'value', {
@@ -95,6 +97,13 @@ async function setup({
       longitude: -88,
     },
   ];
+  for (let i = 2; i <= homeCount; i++)
+    homes.push({
+      ...homes[0],
+      id: 'home' + i,
+      display_name: 'Household ' + i,
+      address: i + ' Test Lane',
+    });
   let schemaCalls = 0;
   function from(table) {
     const filters = [];
@@ -202,10 +211,16 @@ async function setup({
       onAuthStateChange() {},
     },
     storage: {
-      from() {
+      from(bucket) {
         return {
-          list: async () => ({ data: [] }),
-          createSignedUrl: async () => ({ data: { signedUrl: 'https://test.invalid/photo' } }),
+          list: async (id) => {
+            calls.push({ name: 'photo-list', bucket, id });
+            return { data: photoFiles };
+          },
+          createSignedUrl: async (path) => {
+            calls.push({ name: 'photo-sign', bucket, path });
+            return { data: { signedUrl: 'https://test.invalid/photo' } };
+          },
         };
       },
     },
@@ -600,6 +615,7 @@ async function setup({
   assert.equal(windows[0].content.querySelector('Unlinked'), null);
   assert.equal(windows[0].content.querySelectorAll('img').length, 0);
   pins.ctx.window.matchMedia = () => ({ matches: true });
+  pins.ctx.window.matchMedia = () => ({ matches: true });
   vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseenter'))", pins.ctx);
   assert.equal(windows.length, 1);
   assert.equal(windows[0].openOptions.shouldFocus, false);
@@ -608,6 +624,7 @@ async function setup({
   vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseleave'))", pins.ctx);
   await new Promise((resolve) => setTimeout(resolve, 180));
   assert.equal(windows[0].opened, false, 'Hover popup closes after leaving the pin.');
+  pins.ctx.window.matchMedia = () => ({ matches: true });
   vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseenter'))", pins.ctx);
   vm.runInContext("markers[0].content.dispatchEvent(new window.Event('mouseleave'))", pins.ctx);
   windows[0].content.dispatchEvent(new pins.ctx.window.Event('mouseenter'));
@@ -861,6 +878,117 @@ async function setup({
   );
   console.log(
     'PASS: progressive first content before secondary requests, permission gates, navigation preservation, stale sign-out responses, auth loading placeholders, secondary failure isolation and private-data-free startup timings.',
+  );
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+(async () => {
+  const t = await setup({ homeCount: 24, photoFiles: [{ id: 'file1', name: 'primary.jpg' }] });
+  const lists = () =>
+    t.calls.filter((c) => c.name === 'photo-list' && c.bucket === 'household-photos');
+  const signs = () =>
+    t.calls.filter((c) => c.name === 'photo-sign' && c.bucket === 'household-photos');
+  assert.equal(lists().length, 4, 'Startup lists only own household and three featured neighbors.');
+  assert.deepEqual(
+    lists()
+      .map((c) => c.id)
+      .sort(),
+    ['home1', 'home2', 'home3', 'home4'],
+  );
+  assert.equal(signs().length, 4, 'My photos and Home reuse signed URLs.');
+  vm.runInContext("view('browse')", t.ctx);
+  await new Promise(setImmediate);
+  assert.equal(lists().length, 24);
+  assert.equal(
+    new Set(lists().map((c) => c.id)).size,
+    24,
+    'Concurrent loads share each photo-list request.',
+  );
+  vm.runInContext("view('overview'); view('browse')", t.ctx);
+  await vm.runInContext("loadDirectoryPhotos(generation, 'directory')", t.ctx);
+  assert.equal(lists().length, 24, 'Revisiting views reuses recent results.');
+  await vm.runInContext("invalidateHouseholdPhoto('home1'); refreshHouseholdPhoto('home1')", t.ctx);
+  assert.equal(lists().length, 25, 'Photo changes invalidate metadata.');
+  assert.equal(signs().length, 25, 'Photo changes invalidate signed URLs.');
+  await vm.runInContext(
+    "photoChecks.set('home2', 0); photoListCache.get('home2').expires = 0; photoUrlCache.get('home2/primary.jpg').expires = 0; loadDirectoryPhotos(generation, 'directory')",
+    t.ctx,
+  );
+  assert.equal(lists().length, 26, 'Expired metadata can refresh.');
+  assert.equal(signs().length, 26, 'Expired signed URLs are renewed.');
+  t.db.auth.getSession = async () => ({ data: { session: null } });
+  await vm.runInContext('load()', t.ctx);
+  assert.equal(
+    vm.runInContext(
+      'photoListCache.size + photoUrlCache.size + photoChecks.size + photoLoads.size',
+      t.ctx,
+    ),
+    0,
+  );
+
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const late = await setup({
+    homeCount: 24,
+    waitForLoad: false,
+    beforeLoad: ({ db }) => {
+      const original = db.storage.from;
+      db.storage.from = (bucket) => {
+        const storage = original(bucket);
+        return {
+          ...storage,
+          list: async (id, options) => {
+            await gate;
+            return storage.list(id, options);
+          },
+        };
+      };
+    },
+  });
+  await new Promise(setImmediate);
+  late.db.auth.getSession = async () => ({ data: { session: null } });
+  await vm.runInContext('load()', late.ctx);
+  release();
+  await late.loadPromise;
+  assert.equal(
+    vm.runInContext('directoryPhotos.size + photoListCache.size + photoUrlCache.size', late.ctx),
+    0,
+  );
+  assert.equal(late.document.getElementById('directory').hidden, true);
+  const stopped = await setup({ homeCount: 24 });
+  let finishDirectory;
+  const directoryGate = new Promise((resolve) => {
+    finishDirectory = resolve;
+  });
+  const originalStorage = stopped.db.storage.from;
+  stopped.db.storage.from = (bucket) => {
+    const storage = originalStorage(bucket);
+    return {
+      ...storage,
+      list: async (id, options) => {
+        if (!['home1', 'home2', 'home3', 'home4'].includes(id)) await directoryGate;
+        return storage.list(id, options);
+      },
+    };
+  };
+  vm.runInContext("view('browse')", stopped.ctx);
+  const batch = vm.runInContext("loadDirectoryPhotos(generation, 'directory')", stopped.ctx);
+  await new Promise(setImmediate);
+  vm.runInContext("view('profile')", stopped.ctx);
+  finishDirectory();
+  await batch;
+  const stoppedCalls = stopped.calls.filter((c) => c.name === 'photo-list');
+  assert.equal(
+    stoppedCalls.length,
+    8,
+    'Leaving Directory stops scheduling beyond the four in-flight requests.',
+  );
+  console.log(
+    'PASS: four household photo checks on Home regardless of neighborhood size, deferred directory photos, request deduplication, signed URL reuse/expiry, mutation invalidation and sign-out safety.',
   );
 })().catch((error) => {
   console.error(error);

@@ -122,3 +122,23 @@ separately from the main content. The report is replaced on the next account/dat
 reload, remains in memory only, and includes no household records, user identities,
 credentials, request URLs, or external telemetry. These are diagnostic measurements
 from the current browser, not promised loading times or verified live API performance.
+
+### Household photo request tuning
+
+Home checks uploaded photos only for your household and the three featured
+neighbors. Opening Directory starts the remaining checks, with at most four
+concurrent household checks per batch. Leaving Directory stops new directory-only
+checks from that batch; results already in flight can still update the photo cache.
+Explicit Street View and no-photo preferences do not need an uploaded-photo check.
+
+Recent photo checks are reused for four minutes, storage listings for one minute,
+and five-minute signed URLs for at most four minutes. In-progress requests are
+shared by the home card, directory, household details, and own-photo gallery.
+Uploads, deletions, and preference changes invalidate the affected household.
+All caches live in memory and are cleared on account/data reload and sign-out;
+Google imagery itself is not cached by this code.
+
+Startup diagnostics now show `Home household photos`. `Directory photos` is a
+separate timing recorded only when that view is opened. This change reduces the
+number of startup requests; compare actual browser timings rather than assuming a
+fixed speed improvement.

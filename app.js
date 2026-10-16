@@ -74,6 +74,28 @@ async function startupTask(trace, stage, action) {
 let selectedFilter = 'all',
   greetingName = '';
 const directoryPhotos = new Map();
+const photoListCache = new Map(),
+  photoUrlCache = new Map(),
+  photoChecks = new Map(),
+  photoLoads = new Map(),
+  photoRevisions = new Map();
+function clearHouseholdPhotoCache() {
+  photoListCache.clear();
+  photoUrlCache.clear();
+  photoChecks.clear();
+  photoLoads.clear();
+  photoRevisions.clear();
+}
+function invalidateHouseholdPhoto(id) {
+  photoRevisions.set(id, (photoRevisions.get(id) || 0) + 1);
+  photoListCache.delete(id);
+  photoChecks.delete(id);
+  photoLoads.delete(id);
+  householdPhotosReady.delete(id);
+  directoryPhotos.delete(id);
+  for (const path of photoUrlCache.keys())
+    if (path.startsWith(id + '/')) photoUrlCache.delete(path);
+}
 const esc = (s) =>
   String(s ?? '').replace(
     /[&<>"']/g,
@@ -149,6 +171,12 @@ function view(id) {
   $('page-title').textContent = pages[id][0];
   $('page-description').textContent = pages[id][1];
   $('main-content').dataset.view = id;
+  if (id === 'browse' || (id === 'overview' && startupTrace?.state !== 'loading'))
+    run(() =>
+      startupTask(startupTrace, id === 'browse' ? 'Directory photos' : 'Home photos', () =>
+        loadDirectoryPhotos(generation, id === 'browse' ? 'directory' : 'home'),
+      ),
+    );
   show('page-eyebrow', id !== 'overview');
   const browsing = id === 'browse' || id === 'mapview';
   setSearchOpen(false);
@@ -203,6 +231,7 @@ async function load() {
   memberPhotoUrls.clear();
   householdLoginRoles.clear();
   directoryPhotos.clear();
+  clearHouseholdPhotoCache();
   householdPhotosReady.clear();
   membership = null;
   user = null;
@@ -403,7 +432,7 @@ async function loadContent(version, trace) {
   const jobs = [
     refreshMembers,
     locations,
-    startupTask(trace, 'Household photos', () => loadDirectoryPhotos(version)),
+    startupTask(trace, 'Home household photos', () => loadDirectoryPhotos(version)),
     startupTask(trace, 'My photos', async () => {
       await refreshMembers;
       if (current()) await loadMyPhotos();
@@ -519,7 +548,7 @@ function renderFilters() {
         }),
     );
 }
-function render() {
+function render(redrawMap = true) {
   const visible = visibleHouseholds();
   renderFilters();
   $('count').textContent =
@@ -544,7 +573,7 @@ function render() {
       render();
     };
   renderOverview();
-  if (map && (!$('mapview').hidden || !$('overview').hidden))
+  if (redrawMap && map && (!$('mapview').hidden || !$('overview').hidden))
     drawMarkers(!$('overview').hidden ? households : visible);
 }
 function renderOverview() {
@@ -610,29 +639,74 @@ function renderOverview() {
     .forEach((b) => (b.onclick = () => run(() => detail(b.dataset.neighbor))));
 }
 async function refreshHouseholdPhoto(id, version = generation) {
-  try {
-    const files = await photoList(id);
-    const url = files.length ? await photoUrl(`${id}/${files[0].name}`) : null;
-    if (version !== generation || !membership) return;
-    if (url) directoryPhotos.set(id, { url });
-    else directoryPhotos.delete(id);
-  } catch (e) {
-    if (version === generation) directoryPhotos.delete(id);
-  } finally {
-    if (version === generation && membership) householdPhotosReady.add(id);
-  }
+  const existing = photoLoads.get(id);
+  if (existing?.version === version) return existing.promise;
+  const revision = photoRevisions.get(id) || 0;
+  const record = { version, promise: null };
+  const current = () =>
+    version === generation && !!membership && revision === (photoRevisions.get(id) || 0);
+  record.promise = Promise.resolve().then(async () => {
+    try {
+      const home = households.find((h) => h.id === id);
+      const skip = ['none', 'streetview'].includes(home?.photo_preference);
+      const files = skip ? [] : await photoList(id);
+      const url = files.length ? await photoUrl(`${id}/${files[0].name}`) : null;
+      if (!current()) return;
+      if (url) directoryPhotos.set(id, { url });
+      else directoryPhotos.delete(id);
+      photoChecks.set(id, Date.now() + 240000);
+    } catch {
+      if (current()) {
+        directoryPhotos.delete(id);
+        photoChecks.set(id, Date.now() + 30000);
+      }
+    } finally {
+      if (current()) householdPhotosReady.add(id);
+      if (photoLoads.get(id) === record) photoLoads.delete(id);
+    }
+  });
+  photoLoads.set(id, record);
+  return record.promise;
 }
-async function loadDirectoryPhotos(version) {
-  const queue = households.map((h) => h.id);
+async function loadDirectoryPhotos(version, scope = 'home') {
+  if (version !== generation || !membership) return;
+  const ownId = membership.household_id;
+  const homes =
+    scope === 'directory'
+      ? households
+      : [
+          ...households.filter((h) => h.id === ownId),
+          ...households.filter((h) => h.id !== ownId).slice(0, 3),
+        ];
+  const queue = homes.filter((h) => !(photoChecks.get(h.id) > Date.now())).map((h) => h.id);
+  if (!queue.length) return;
   await Promise.all(
     Array.from({ length: Math.min(4, queue.length) }, async () => {
-      while (queue.length && version === generation) {
-        await refreshHouseholdPhoto(queue.shift(), version);
+      while (queue.length && version === generation && membership) {
+        // Stop scheduling directory-only work when the resident leaves that view.
+        if (scope === 'directory' && $('main-content').dataset.view !== 'browse') break;
+        const id = queue.shift();
+        await refreshHouseholdPhoto(id, version);
+        if (
+          version === generation &&
+          membership &&
+          scope === 'directory' &&
+          $('main-content').dataset.view === 'browse'
+        ) {
+          const card = $('households').querySelector(`[data-household="${id}"]`);
+          const home = households.find((h) => h.id === id);
+          if (card && home) {
+            const holder = document.createElement('span');
+            holder.innerHTML = householdImage(home, 'directory');
+            card.querySelectorAll('.house-photo-directory').forEach((image) => image.remove());
+            card.prepend(...holder.childNodes);
+          }
+        }
       }
     }),
   );
   if (version === generation && membership) {
-    render();
+    render(false);
     fillHouseholdPhotoControls();
   }
 }
@@ -814,14 +888,46 @@ function drawMarkers(rows) {
   }
 }
 async function photoList(id) {
-  return checked(
-    await db.storage
-      .from('household-photos')
-      .list(id, { limit: 100, sortBy: { column: 'name', order: 'asc' } }),
-  ).filter((f) => f.id);
+  if (!membership) return [];
+  const version = generation;
+  const cached = photoListCache.get(id);
+  if (cached && cached.expires > Date.now()) return cached.promise;
+  const record = { expires: Date.now() + 60000, promise: null };
+  record.promise = (async () => {
+    try {
+      const files = checked(
+        await db.storage
+          .from('household-photos')
+          .list(id, { limit: 100, sortBy: { column: 'name', order: 'asc' } }),
+      ).filter((f) => f.id);
+      return version === generation && membership ? files : [];
+    } catch (error) {
+      if (photoListCache.get(id) === record) photoListCache.delete(id);
+      throw error;
+    }
+  })();
+  photoListCache.set(id, record);
+  return record.promise;
 }
 async function photoUrl(path) {
-  return checked(await db.storage.from('household-photos').createSignedUrl(path, 300)).signedUrl;
+  if (!membership) return null;
+  const version = generation;
+  const cached = photoUrlCache.get(path);
+  if (cached && cached.expires > Date.now()) return cached.promise;
+  const record = { expires: Date.now() + 240000, promise: null };
+  record.promise = (async () => {
+    try {
+      const signed = checked(
+        await db.storage.from('household-photos').createSignedUrl(path, 300),
+      ).signedUrl;
+      return version === generation && membership ? signed : null;
+    } catch (error) {
+      if (photoUrlCache.get(path) === record) photoUrlCache.delete(path);
+      throw error;
+    }
+  })();
+  photoUrlCache.set(path, record);
+  return record.promise;
 }
 async function detail(id) {
   const version = generation;
@@ -880,6 +986,7 @@ async function loadMyPhotos() {
             checked(
               await db.storage.from('household-photos').remove([`${id}/${b.dataset.delete}`]),
             );
+            invalidateHouseholdPhoto(id);
             await loadMyPhotos();
             await refreshHouseholdPhoto(id);
             render();
@@ -1134,6 +1241,7 @@ $('upload').onchange = () =>
         );
         households = households.map((h) => (h.id === id ? updated : h));
       }
+      invalidateHouseholdPhoto(id);
       await loadMyPhotos();
       await refreshHouseholdPhoto(id);
       render();
