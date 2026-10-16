@@ -492,6 +492,50 @@ console.log(
   'PASS: OAuth worker leases, replay protection, successful cache renewal and resident RPC denial.',
 );
 
+const limitsMigration = fs.readFileSync(
+  new URL('supabase/migrations/009-geocode-batch-limits.sql', root),
+  'utf8',
+);
+await db.exec(limitsMigration);
+await db.exec(limitsMigration);
+await assert.rejects(db.query('select * from claim_geocode_refresh(11,false)'), /Batch size/);
+await assert.rejects(db.query('select * from claim_geocode_refresh(101,true)'), /Batch size/);
+await assert.rejects(db.query('select nc_private.enqueue_geocode_refresh(false,11)'), /Batch size/);
+await assert.rejects(db.query('select nc_private.enqueue_geocode_refresh(true,101)'), /Batch size/);
+const limitsN = (
+  await db.query(
+    "insert into neighborhoods(slug,name) values('limits-test','Limits test') returning id",
+  )
+).rows[0].id;
+await db.query(
+  "insert into households(neighborhood_id,address,display_name,location_source) select $1, i::text || ' Test Lane', 'Test household', 'google' from generate_series(1,120) i",
+  [limitsN],
+);
+const largeClaims = (await db.query('select * from claim_geocode_refresh(100,true)')).rows;
+assert.equal(largeClaims.length, 100);
+assert.equal(new Set(largeClaims.map((r) => r.household_id)).size, 100);
+const normalClaims = (await db.query('select * from claim_geocode_refresh()')).rows;
+assert.equal(normalClaims.length, 10);
+assert.equal(
+  normalClaims.some((r) => largeClaims.some((c) => c.household_id === r.household_id)),
+  false,
+);
+await db.exec('set role authenticated');
+await assert.rejects(
+  db.query('select * from claim_geocode_refresh(100,true)'),
+  /permission denied/,
+);
+await assert.rejects(
+  db.query('select nc_private.enqueue_geocode_refresh(true,100)'),
+  /permission denied/,
+);
+await db.exec('reset role');
+await db.query('delete from households where neighborhood_id=$1', [limitsN]);
+await db.query('delete from neighborhoods where id=$1', [limitsN]);
+console.log(
+  'PASS: repeatable manual batch upgrade, 100 unique forced claims, normal maximum/default 10, active lease isolation and resident denial.',
+);
+
 await db.exec('alter table storage.objects add column owner_id text');
 const settingsMigration = fs.readFileSync(
   new URL('supabase/migrations/007-account-settings.sql', root),

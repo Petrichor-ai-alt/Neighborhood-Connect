@@ -110,3 +110,50 @@ where
 A successful worker response reports `attempted`, `refreshed`, and `failed`. If there are no Google-managed households, all counts are zero; manually positioned households deliberately stay unchanged. Test an approved Google-managed household to verify a real lookup. `OAUTH` indicates service-account/secret configuration trouble; `GOOGLE_HTTP` indicates a Google API, billing, permission or quota failure. Use Google Cloud API metrics to diagnose without logging household addresses or credentials.
 
 The function only claims addresses from the database. Five-minute leases prevent duplicate jobs; changed addresses, stale responses, large unexpected position changes, and newer administrator refreshes cannot be overwritten. Residents cannot execute its database RPCs. The setup has local automated verification; your live Supabase/Google activation must be checked with the steps above.
+
+## Update existing installations: separate manual and scheduled limits
+
+1. In **Supabase → Edge Functions → refresh-geocodes → Code**, replace the code
+   with the latest [index.ts](functions/refresh-geocodes/index.ts) and deploy.
+   Keep the existing secrets and JWT setting.
+2. In **Supabase → SQL Editor**, run the complete
+   [009-geocode-batch-limits.sql](migrations/009-geocode-batch-limits.sql).
+   Do not rerun setup.sql or migration 006; this update preserves your current cron schedule.
+3. Normal refreshes still default to and cannot exceed **10** households. Only
+   forced manual requests may specify up to **100**.
+4. Run a forced manual refresh once:
+
+   ```sql
+   select
+     nc_private.enqueue_geocode_refresh (true, 100) as request_id;
+   ```
+
+   This selects up to 100 Google-managed households once within that request.
+   Manually positioned homes stay untouched. It is not a recurring job or a permanent
+   increase to scheduled batch sizes. Google project quotas still apply separately.
+
+5. Copy the returned request ID and inspect that specific response after it completes:
+
+   ```sql
+   select
+     id,
+     status_code,
+     timed_out,
+     content
+   from
+     net._http_response
+   where
+     id = 123;
+   
+   -- Replace 123 with your request ID.
+   ```
+
+   A successful HTTP response includes attempted, refreshed, and failed counts.
+   Investigate failures before retrying. Forced requests can refresh the same homes
+   again; do not keep rerunning until attempted is zero. For more than 100 households,
+   a tracked refresh-all queue is still needed for guaranteed single-pass processing.
+
+The updated worker uses up to 20 concurrent lookups for forced manual batches and
+five for normal batches, with eight-second per-request timeouts. Existing leases,
+manual-location protection, coordinate validation, and failure tracking remain in place.
+No background run or paid Google lookup is triggered by installing this update.

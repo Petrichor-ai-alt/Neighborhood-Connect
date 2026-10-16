@@ -59,7 +59,7 @@ export function createHandler(env, fetcher = fetch) {
       if (
         !Number.isInteger(batch) ||
         batch < 1 ||
-        batch > 10 ||
+        batch > (input.force_refresh === true ? 100 : 10) ||
         (input.force_refresh !== undefined && typeof input.force_refresh !== 'boolean')
       )
         return reply({ error: 'INVALID_INPUT' }, 400);
@@ -73,7 +73,7 @@ export function createHandler(env, fetcher = fetch) {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(body),
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(8000),
         });
         if (!res.ok) throw Error('DATABASE');
         return res.json();
@@ -93,7 +93,7 @@ export function createHandler(env, fetcher = fetch) {
             grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             assertion: await assertion(account),
           }),
-          signal: AbortSignal.timeout(10000),
+          signal: AbortSignal.timeout(8000),
         });
         if (!res.ok) throw Error('OAUTH');
         token = (await res.json()).access_token;
@@ -103,7 +103,7 @@ export function createHandler(env, fetcher = fetch) {
       }
       let refreshed = 0,
         failed = 0;
-      for (const claim of claims) {
+      const processClaim = async (claim) => {
         let coords = { latitude: null, longitude: null },
           error = null;
         try {
@@ -115,7 +115,7 @@ export function createHandler(env, fetcher = fetch) {
                 Authorization: `Bearer ${token}`,
                 'X-Goog-User-Project': account.project_id,
               },
-              signal: AbortSignal.timeout(10000),
+              signal: AbortSignal.timeout(8000),
             },
           );
           if (!res.ok) throw Error('GOOGLE_HTTP');
@@ -134,7 +134,19 @@ export function createHandler(env, fetcher = fetch) {
         });
         if (saved === true) refreshed++;
         else failed++;
-      }
+      };
+      // Bound parallel requests so a large manual batch fits the worker time budget.
+      // Ordinary scheduled runs use at most five concurrent lookups.
+      let next = 0;
+      const concurrency = input.force_refresh === true ? 20 : 5;
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, claims.length) }, async () => {
+          while (next < claims.length) {
+            const claim = claims[next++];
+            await processClaim(claim);
+          }
+        }),
+      );
       return reply({ attempted: claims.length, refreshed, failed });
     } catch {
       return reply({ error: 'WORKER_FAILED' }, 503);

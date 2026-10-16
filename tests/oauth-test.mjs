@@ -87,3 +87,64 @@ assert.equal(calls.length, 4);
 console.log(
   'PASS: OAuth JWT signature/scope, worker authentication, v4 validation and bearer-only requests.',
 );
+
+const request = (body) =>
+  new Request('https://worker', {
+    method: 'POST',
+    headers: { 'x-nc-refresh-token': 'test-secret' },
+    body: JSON.stringify(body),
+  });
+for (const body of [
+  { batch_size: 11 },
+  { batch_size: 101, force_refresh: true },
+  { batch_size: 0 },
+  { batch_size: 1.5 },
+  { batch_size: 100, force_refresh: 'true' },
+]) {
+  calls = [];
+  assert.equal((await handler(request(body))).status, 400);
+  assert.equal(calls.length, 0);
+}
+let active = 0,
+  peak = 0;
+const finished = new Set();
+const largeHandler = createHandler(
+  (n) => vars[n],
+  async (url, options) => {
+    if (url.endsWith('claim_geocode_refresh')) {
+      assert.deepEqual(JSON.parse(options.body), { batch_size: 100, force_refresh: true });
+      return Response.json(
+        Array.from({ length: 100 }, (_, i) => ({
+          household_id: 'home' + i,
+          lease_token: 'lease' + i,
+          address: i + ' Test Lane',
+        })),
+      );
+    }
+    if (url === 'https://oauth2.googleapis.com/token')
+      return Response.json({ access_token: 'oauth-token' });
+    if (url.startsWith('https://geocode.googleapis.com/')) {
+      active++;
+      peak = Math.max(peak, active);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      active--;
+      return Response.json(result);
+    }
+    if (url.endsWith('finish_geocode_refresh')) {
+      const saved = JSON.parse(options.body);
+      assert.equal(finished.has(saved.household), false);
+      finished.add(saved.household);
+      return Response.json(true);
+    }
+    throw Error('Unexpected request');
+  },
+);
+assert.deepEqual(
+  await (await largeHandler(request({ batch_size: 100, force_refresh: true }))).json(),
+  { attempted: 100, refreshed: 100, failed: 0 },
+);
+assert.equal(finished.size, 100);
+assert.ok(peak > 1 && peak <= 20);
+console.log(
+  'PASS: larger manual batches, unchanged scheduled validation, bounded concurrency and exactly one finish per claim.',
+);
