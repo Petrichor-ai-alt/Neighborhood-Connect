@@ -44,6 +44,14 @@ async function setup({
     el.focus = () => {};
     el.reportValidity = () => true;
   }
+  for (const dialog of document.querySelectorAll('dialog')) {
+    dialog.close = () => {
+      dialog.open = false;
+    };
+    dialog.showModal = () => {
+      dialog.open = true;
+    };
+  }
   const requests = [];
   const calls = [];
   const people = [
@@ -121,6 +129,9 @@ async function setup({
         return this;
       },
       order() {
+        return this;
+      },
+      range() {
         return this;
       },
       update(p) {
@@ -330,6 +341,7 @@ async function setup({
   vm.runInContext(fs.readFileSync(root + 'members.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'account-settings.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'calendar.js', 'utf8'), ctx);
+  vm.runInContext(fs.readFileSync(root + 'discussions.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'app.js', 'utf8').replace('\nrun(load);', ''), ctx);
   vm.runInContext('loadMap=async()=>{}', ctx);
   if (beforeLoad) await beforeLoad({ ctx, document, db });
@@ -990,6 +1002,26 @@ async function setup({
   console.log(
     'PASS: four household photo checks on Home regardless of neighborhood size, deferred directory photos, request deduplication, signed URL reuse/expiry, mutation invalidation and sign-out safety.',
   );
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});
+
+(async () => {
+  const t = await setup();
+  vm.runInContext("view('discussions')", t.ctx);
+  await new Promise(setImmediate);
+  assert.equal(t.document.getElementById('discussions').hidden, false);
+  assert.equal(t.document.getElementById('directory').hidden, true);
+  assert.equal(t.document.getElementById('calendar').hidden, true);
+  assert.equal(t.document.getElementById('search-toggle').hidden, true);
+  assert.ok(t.document.getElementById('discussion-status').textContent.includes('No discussions'));
+  vm.runInContext("view('overview')", t.ctx);
+  assert.equal(t.document.getElementById('discussions').hidden, true);
+  const pending = await setup({ approved: false });
+  vm.runInContext("view('discussions')", pending.ctx);
+  assert.equal(pending.document.getElementById('discussions').hidden, true);
+  console.log('PASS: Discussions navigation, neighboring page isolation and pending-user gating.');
 })().catch((error) => {
   console.error(error);
   process.exitCode = 1;

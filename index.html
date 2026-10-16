@@ -12,18 +12,19 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=progressive-startup-1" />
+    <link rel="stylesheet" href="style.css?v=discussions-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
     ></script>
+    <script src="discussions.js?v=discussions-1" defer></script>
     <script src="config.js" defer></script>
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=photo-priority-2" defer></script>
     <script src="members.js?v=progressive-startup-1" defer></script>
     <script src="account-settings.js?v=account-settings-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
-    <script src="app.js?v=photo-priority-2" defer></script>
+    <script src="app.js?v=discussions-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -107,6 +108,20 @@
             <circle cx="9" cy="7" r="3" />
             <path d="M3 21v-3a6 6 0 0 1 12 0v3zM16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 5v2" /></svg
           ><span>Directory</span></button
+        ><button data-view="discussions">
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            width="21"
+            height="21"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linejoin="round"
+          >
+            <path d="M21 11a8 8 0 0 1-8 8H6l-4 3V7a5 5 0 0 1 5-5h9a5 5 0 0 1 5 5z" />
+            <path d="M7 8h10M7 12h7" /></svg
+          ><span>Discussions</span></button
         ><button data-view="calendar">
           <svg
             aria-hidden="true"
@@ -525,6 +540,83 @@
         </div>
       </section>
 
+      <section id="discussions" hidden aria-label="Neighborhood discussions">
+        <div class="discussion-toolbar">
+          <label id="discussion-filter"
+            >Category<select id="discussion-category">
+              <option value="all">All discussions</option>
+              <option value="general">General</option>
+              <option value="recommendations">Recommendations</option>
+              <option value="questions">Questions</option>
+              <option value="ideas">Neighborhood ideas</option>
+            </select></label
+          >
+          <div class="discussion-toolbar-actions">
+            <button id="discussion-refresh">Refresh</button
+            ><button id="discussion-new" class="primary">＋ Start a discussion</button>
+          </div>
+        </div>
+        <p id="discussion-status" class="discussion-meta" role="status" aria-live="polite"></p>
+        <p id="discussion-error" role="alert"></p>
+        <div id="discussion-list-view">
+          <div id="discussion-list" class="discussion-list"></div>
+          <button id="discussion-more" hidden>Load more discussions</button>
+        </div>
+        <div id="discussion-detail-view" hidden>
+          <button id="discussion-back" class="text-link">← All discussions</button>
+          <article class="panel discussion-post">
+            <div id="discussion-content"></div>
+            <div id="discussion-actions" class="discussion-post-actions"></div>
+          </article>
+          <h3 class="discussion-replies-title">Replies</h3>
+          <div id="discussion-replies"></div>
+          <button id="discussion-replies-more" hidden>Load more replies</button>
+          <button id="discussion-add-reply" class="primary" hidden>Write a reply</button>
+        </div>
+        <p class="discussion-footnote">
+          A place for questions, recommendations, and neighborhood ideas. Be considerate of your
+          neighbors. Shared only within your neighborhood.
+        </p>
+        <p id="discussion-confirmation" role="status" aria-live="polite" hidden></p>
+      </section>
+      <dialog id="discussion-editor" class="event-dialog" aria-labelledby="discussion-editor-title">
+        <div class="event-dialog-top">
+          <span class="eyebrow">Neighborhood discussions</span
+          ><button id="discussion-editor-close" type="button">Close ×</button>
+        </div>
+        <h2 id="discussion-editor-title">Start a discussion</h2>
+        <form id="discussion-form">
+          <label id="discussion-title-field"
+            >Title<input
+              name="title"
+              maxlength="120"
+              required
+              placeholder="What would you like to discuss?"
+          /></label>
+          <label id="discussion-category-field"
+            >Category<select name="category">
+              <option value="general">General</option>
+              <option value="recommendations">Recommendations</option>
+              <option value="questions">Questions</option>
+              <option value="ideas">Neighborhood ideas</option>
+            </select></label
+          >
+          <label
+            >Message<textarea
+              name="body"
+              rows="7"
+              maxlength="5000"
+              required
+              placeholder="Share your question, recommendation, or idea…"
+            ></textarea>
+          </label>
+          <p id="discussion-form-error" role="alert"></p>
+          <div class="event-form-actions">
+            <button id="discussion-cancel" type="button">Cancel</button
+            ><button id="discussion-save" class="primary" type="submit">Post discussion</button>
+          </div>
+        </form>
+      </dialog>
       <section id="calendar" hidden aria-label="Neighborhood calendar">
         <div class="calendar-toolbar">
           <p id="calendar-zone"></p>

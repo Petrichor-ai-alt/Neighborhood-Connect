@@ -130,17 +130,26 @@ function view(id) {
   closePinPopup();
   if (id === 'person' && !membersEnabled) return;
   if ((!membership && id !== 'settings') || (id === 'admin' && membership.role !== 'admin')) return;
-  ['overview', 'browse', 'mapview', 'profile', 'person', 'admin', 'settings', 'calendar'].forEach(
-    (x) => show(x, x === id),
-  );
+  [
+    'overview',
+    'browse',
+    'mapview',
+    'profile',
+    'person',
+    'admin',
+    'settings',
+    'calendar',
+    'discussions',
+  ].forEach((x) => show(x, x === id));
   document.querySelectorAll('[data-view]').forEach((b) => {
     const active = b.dataset.view === id;
     b.classList.toggle('active', active);
     if (active) b.setAttribute('aria-current', 'page');
     else b.removeAttribute('aria-current');
   });
-  show('directory', !!membership && !['settings', 'calendar'].includes(id));
+  show('directory', !!membership && !['settings', 'calendar', 'discussions'].includes(id));
   if (id === 'calendar') run(openCommunityCalendar);
+  if (id === 'discussions') run(openDiscussions);
   if (id === 'overview' && typeof loadOverviewEvents === 'function')
     run(() => startupTask(startupTrace, 'Upcoming events', loadOverviewEvents));
   if (id === 'settings') {
@@ -159,6 +168,10 @@ function view(id) {
       'A little introduction goes a long way. Share what makes your household yours.',
     ],
     calendar: ['Community calendar', 'Your neighborhood, coming together.'],
+    discussions: [
+      'Neighborhood discussions',
+      'Share ideas, ask questions, and hear from your neighbors.',
+    ],
     settings: ['Account settings', 'Your login, security, and contact preferences.'],
     person: ['Your personal profile', 'Help your neighbors get to know you.'],
     admin: [
@@ -224,6 +237,7 @@ async function load() {
   const trace = beginStartupTiming();
   show('startup-loading', true);
   closePinPopup();
+  resetDiscussions();
   memberDataLoading = true;
   memberDataFailed = false;
   members = [];
@@ -265,6 +279,7 @@ async function loadContent(version, trace) {
     'persontab',
     'settings',
     'calendar',
+    'discussions',
   ].forEach((x) => show(x, false));
   const session = checked(await startupTask(trace, 'Session', () => db.auth.getSession()));
   if (version !== generation) return;
@@ -1319,6 +1334,7 @@ db.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT') setTimeout(() => run(load), 0);
 });
 initCommunityCalendar();
+initDiscussions();
 initAccountSettings();
 initMembersUI();
 initHouseholdPhotos();

@@ -7,6 +7,6 @@
   "name": "neighborhood-connect-verification",
   "private": true,
   "scripts": {
-    "test": "node database-test.mjs && node frontend-test.cjs && node oauth-test.mjs && node account-delete-test.mjs && node calendar-database-test.mjs && node calendar-frontend-test.cjs"
+    "test": "node database-test.mjs && node frontend-test.cjs && node oauth-test.mjs && node account-delete-test.mjs && node calendar-database-test.mjs && node calendar-frontend-test.cjs && node discussions-database-test.mjs && node discussions-frontend-test.cjs"
   }
 }
