@@ -63,7 +63,7 @@ async function renderAccountSettings(page = 'menu') {
   const household = households.find((h) => h.id === membership?.household_id);
   $('settings-name').textContent =
     person?.display_name || user.user_metadata?.full_name || 'Your account';
-  $('settings-email').textContent = user.email || 'No login email';
+  $('settings-email').textContent = user.email || 'No sign-in email';
   $('settings-verified').textContent = user.email_confirmed_at ? 'Verified' : 'Not yet verified';
   $('settings-neighborhood').textContent = neighborhood?.name || neighborhoodName;
   $('settings-household').textContent = household?.display_name || 'Not yet linked to a household';
@@ -80,7 +80,7 @@ async function renderAccountSettings(page = 'menu') {
   if (result.error) {
     if (['PGRST202', '42883'].includes(result.error.code)) {
       $('account-contacts-status').textContent =
-        'Contact preferences will be available after the account settings database update.';
+        'Contact information will be available after the account settings database update.';
       $('account-delete-status').textContent =
         'Account deletion will be available after the account settings database update.';
       return;
@@ -100,7 +100,7 @@ async function renderAccountSettings(page = 'menu') {
       'Hidden contact details stay private to your account.';
   } else
     $('account-contacts-status').textContent =
-      'Contact preferences become available when your individual profile is linked to your account.';
+      'Contact information become available when your individual profile is linked to your account.';
   $('account-delete-status').textContent =
     settings.deletion_blocker ||
     'You can delete your account after confirming your password below.';
@@ -153,7 +153,7 @@ function initAccountSettings() {
   $('settings-back').onclick = () => (membership ? view('overview') : run(load));
   accountForm('account-email-form', async (values, form) => {
     if (values.email.trim().toLowerCase() === user.email.toLowerCase())
-      throw Error('Enter a different login email.');
+      throw Error('Enter a different sign-in email.');
     await verifyAccountPassword(values.current_password);
     checked(
       await db.auth.updateUser(
@@ -164,7 +164,7 @@ function initAccountSettings() {
     form.elements.email.value = '';
     await renderAccountSettings('email');
     notice(
-      'Follow the email confirmation instructions to finish changing your login email. Your directory contact email is unchanged.',
+      'Follow the email confirmation instructions to finish changing your sign-in email. Your contact email is unchanged.',
     );
   });
   accountForm('account-password-form', async (values) => {
@@ -181,7 +181,7 @@ function initAccountSettings() {
       checked(
         await db.auth.resetPasswordForEmail(fresh.email, { redirectTo: cfg.authRedirectUrl }),
       );
-      notice('Check your login email for the password reset link.');
+      notice('Check your sign-in email for the password reset link.');
     });
   accountForm('account-contacts-form', async (values, form) => {
     if (!accountSettingsReady) throw Error('Reload your account settings first.');
@@ -196,7 +196,7 @@ function initAccountSettings() {
     );
     await load();
     view('settings');
-    notice('Contact preferences saved.');
+    notice('Contact information saved.');
   });
   $('account-signout-local').onclick = () => run(() => accountSignOut('local'));
   $('account-signout-all').onclick = () =>

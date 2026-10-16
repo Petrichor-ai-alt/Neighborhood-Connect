@@ -22,7 +22,7 @@
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=photo-priority-2" defer></script>
     <script src="members.js?v=progressive-startup-1" defer></script>
-    <script src="account-settings.js?v=settings-menu-1" defer></script>
+    <script src="account-settings.js?v=settings-labels-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
     <script src="app.js?v=discussions-1" defer></script>
   </head>
@@ -726,9 +726,15 @@
         </div>
         <nav id="settings-menu" class="settings-menu" aria-label="Account settings">
           <section class="settings-menu-group">
+            <h2>Your profile</h2>
+            <a href="#account-contacts" data-account-page="contacts"
+              ><span>Contact information</span><span aria-hidden="true">›</span></a
+            >
+          </section>
+          <section class="settings-menu-group">
             <h2>Sign-in and security</h2>
             <a href="#account-email" data-account-page="email"
-              ><span>Login email</span><span aria-hidden="true">›</span></a
+              ><span>Sign-in email</span><span aria-hidden="true">›</span></a
             >
             <a href="#account-password" data-account-page="password"
               ><span>Password</span><span aria-hidden="true">›</span></a
@@ -737,12 +743,7 @@
               ><span>Signed-in sessions</span><span aria-hidden="true">›</span></a
             >
           </section>
-          <section class="settings-menu-group">
-            <h2>Privacy</h2>
-            <a href="#account-contacts" data-account-page="contacts"
-              ><span>Contact privacy</span><span aria-hidden="true">›</span></a
-            >
-          </section>
+
           <section class="settings-menu-group">
             <h2>Account</h2>
             <a href="#account-delete" data-account-page="delete" class="settings-delete-link"
@@ -760,15 +761,15 @@
               aria-labelledby="account-email-heading"
               hidden
             >
-              <h2 id="account-email-heading" tabindex="-1">Login email</h2>
+              <h2 id="account-email-heading" tabindex="-1">Sign-in email</h2>
               <p>
-                Your sign-in address is private. Changing it does not change your directory contact
-                email.
+                Used to sign in and receive account emails. This address is private. To change how
+                neighbors reach you, use Contact information.
               </p>
               <p id="settings-pending-email" hidden></p>
               <form id="account-email-form">
                 <label
-                  >New login email<input
+                  >New sign-in email<input
                     name="email"
                     type="email"
                     required
@@ -785,7 +786,7 @@
                 <button class="primary">Send confirmation</button>
               </form>
               <p class="settings-note">
-                Follow the confirmation email instructions. Your current login email stays active
+                Follow the confirmation email instructions. Your current sign-in email stays active
                 until the change is confirmed.
               </p>
             </section>
@@ -837,15 +838,18 @@
               aria-labelledby="account-contacts-heading"
               hidden
             >
-              <h2 id="account-contacts-heading" tabindex="-1">Contact privacy</h2>
+              <h2 id="account-contacts-heading" tabindex="-1">Contact information</h2>
               <p>
-                Choose what approved neighbors can see on your individual profile. Shared household
-                contact details are managed in My Household.
+                Update the email and phone number on your individual profile, and choose whether
+                approved neighbors can see them. These details do not change your sign-in email.
+              </p>
+              <p class="settings-note">
+                Shared household contact details are managed in My Household.
               </p>
               <p id="account-contacts-status">Loading your contact settings…</p>
               <form id="account-contacts-form" hidden>
                 <label
-                  >Directory contact email<input
+                  >Contact email<input
                     name="contact_email"
                     type="email"
                     maxlength="200"
@@ -856,7 +860,7 @@
                   neighbors</label
                 >
                 <label
-                  >Personal phone<input
+                  >Phone number<input
                     name="contact_phone"
                     type="tel"
                     maxlength="40"
@@ -866,7 +870,7 @@
                   ><input name="share_phone" type="checkbox" /> Show my phone to approved
                   neighbors</label
                 >
-                <button class="primary">Save contact preferences</button>
+                <button class="primary">Save contact information</button>
               </form>
             </section>
             <section
