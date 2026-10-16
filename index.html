@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=pin-hover-2" />
+    <link rel="stylesheet" href="style.css?v=progressive-startup-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -20,10 +20,10 @@
     <script src="config.js" defer></script>
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=address-geocoding-1" defer></script>
-    <script src="members.js?v=address-geocoding-1" defer></script>
+    <script src="members.js?v=progressive-startup-1" defer></script>
     <script src="account-settings.js?v=account-settings-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
-    <script src="app.js?v=pin-hover-2" defer></script>
+    <script src="app.js?v=progressive-startup-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -243,7 +243,11 @@
         /></label>
       </section>
       <div id="notice" role="status" aria-live="polite"></div>
-      <section id="auth" class="panel auth">
+      <section id="startup-loading" class="startup-loading" role="status" aria-live="polite">
+        <p>Loading your neighborhood…</p>
+        <div class="startup-placeholders" aria-hidden="true"><span></span><span></span></div>
+      </section>
+      <section id="auth" class="panel auth" hidden>
         <h2>Welcome, neighbor</h2>
         <p>
           Sign in to your account or join the neighborhood. Directory access requires resident

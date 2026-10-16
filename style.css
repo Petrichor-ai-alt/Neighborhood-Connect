@@ -2946,3 +2946,45 @@ button.danger {
   font-size: 12px;
   line-height: 1.4;
 }
+
+.startup-loading {
+  padding: 12px 0;
+}
+.startup-loading > p {
+  color: var(--muted);
+  margin: 0 0 18px;
+  font-size: 14px;
+}
+.startup-placeholders {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 18px;
+}
+.startup-placeholders span {
+  height: 280px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: linear-gradient(110deg, #edf0e9, #f7f8f4, #edf0e9);
+}
+#overview-map {
+  position: relative;
+}
+#overview-map[data-loading='true']::after {
+  content: 'Loading neighborhood map…';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #edf2e8;
+  color: #53664f;
+  font-size: 13px;
+  pointer-events: none;
+}
+@media (max-width: 700px) {
+  .startup-placeholders {
+    grid-template-columns: 1fr;
+  }
+  .startup-placeholders span {
+    height: 180px;
+  }
+}

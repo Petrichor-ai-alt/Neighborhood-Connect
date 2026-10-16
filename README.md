@@ -99,3 +99,26 @@ Account Settings is separate from the neighbor-visible personal and household pr
 ## Community calendar
 
 The dedicated Calendar sidebar page offers FullCalendar Standard month and upcoming-event views. Approved residents can publish immediately, organizers can edit/cancel their own events, and administrators can manage any event in their neighborhood. Timed events use the neighborhood's IANA timezone; all-day events keep date-only boundaries. Calendar downloads use `.ics` files and do not subscribe residents to updates or email. Run [migration 008](supabase/migrations/008-community-calendar.sql) using [the activation guide](supabase/calendar.md). No new keys, Edge Functions or paid calendar features are needed. The home page remains unchanged.
+
+## Startup diagnostics
+
+The home page appears after session, neighborhood membership, and household data
+are verified. Members, photos, coordinates (including any administrator geocode
+refresh), greeting details, and requests fill in afterward. Household editing
+stays disabled until member permissions finish loading. Secondary work never
+navigates away from the tab the resident has selected.
+
+To inspect timings, open the browser developer console after refreshing and run:
+
+```js
+window.NC_STARTUP.report();
+```
+
+Rows show durations for each load stage. Milestones such as
+`Main content visible` show elapsed time since the application began loading.
+`First content frame` records the next animation frame after content was prepared;
+it is not a laboratory paint measurement. Maps and upcoming events can finish
+separately from the main content. The report is replaced on the next account/data
+reload, remains in memory only, and includes no household records, user identities,
+credentials, request URLs, or external telemetry. These are diagnostic measurements
+from the current browser, not promised loading times or verified live API performance.

@@ -9,6 +9,8 @@ async function setup({
   signed = true,
   approved = true,
   geocoding = false,
+  beforeLoad,
+  waitForLoad = true,
 } = {}) {
   const { window, document } = parseHTML(fs.readFileSync(root + 'index.html', 'utf8'));
   Object.defineProperty(window.HTMLSelectElement.prototype, 'value', {
@@ -315,8 +317,19 @@ async function setup({
   vm.runInContext(fs.readFileSync(root + 'calendar.js', 'utf8'), ctx);
   vm.runInContext(fs.readFileSync(root + 'app.js', 'utf8').replace('\nrun(load);', ''), ctx);
   vm.runInContext('loadMap=async()=>{}', ctx);
-  await vm.runInContext('load()', ctx);
-  return { ctx, document, people, calls, requests, getSchemaCalls: () => schemaCalls };
+  if (beforeLoad) await beforeLoad({ ctx, document, db });
+  const loadPromise = vm.runInContext('load()', ctx);
+  if (waitForLoad) await loadPromise;
+  return {
+    ctx,
+    document,
+    people,
+    calls,
+    requests,
+    db,
+    loadPromise,
+    getSchemaCalls: () => schemaCalls,
+  };
 }
 (async () => {
   let t = await setup({ signed: false });
@@ -726,5 +739,130 @@ async function setup({
   );
 })().catch((e) => {
   console.error(e);
+  process.exitCode = 1;
+});
+
+(async () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise((done) => {
+      resolve = done;
+    });
+    return { promise, resolve };
+  };
+  const flush = () => new Promise(setImmediate);
+  const membersGate = deferred(),
+    locationsGate = deferred(),
+    photosGate = deferred();
+  const t = await setup({
+    waitForLoad: false,
+    beforeLoad: ({ ctx }) => {
+      ctx.membersGate = membersGate.promise;
+      ctx.locationsGate = locationsGate.promise;
+      ctx.photosGate = photosGate.promise;
+      vm.runInContext(
+        `
+        const originalMembers = loadHouseholdMembers;
+        const originalLocations = loadHouseholdLocations;
+        const originalPhotos = loadDirectoryPhotos;
+        loadHouseholdMembers = async (v) => { await membersGate; return originalMembers(v); };
+        loadHouseholdLocations = async (v) => { await locationsGate; return originalLocations(v); };
+        loadDirectoryPhotos = async (v) => { await photosGate; return originalPhotos(v); };
+      `,
+        ctx,
+      );
+    },
+  });
+  await flush();
+  assert.equal(t.document.getElementById('directory').hidden, false);
+  assert.equal(t.document.getElementById('startup-loading').hidden, true);
+  assert.equal(t.document.getElementById('overview-edit').disabled, true);
+  assert.equal(t.document.getElementById('profileform').elements.display_name.disabled, true);
+  assert.ok(
+    t.document.getElementById('overview-household').textContent.includes('Loading members'),
+  );
+  assert.ok(
+    vm.runInContext('startupTrace', t.ctx).stages.some((r) => r.stage === 'Main content visible'),
+  );
+  assert.equal(
+    vm
+      .runInContext('startupTrace', t.ctx)
+      .stages.find((r) => r.stage === 'Members, roles and member photos').state,
+    'loading',
+  );
+  vm.runInContext("view('browse')", t.ctx);
+  membersGate.resolve();
+  locationsGate.resolve();
+  photosGate.resolve();
+  await t.loadPromise;
+  assert.equal(t.document.getElementById('browse').hidden, false);
+  assert.equal(t.document.getElementById('overview').hidden, true);
+  assert.equal(t.document.getElementById('profileform').elements.display_name.disabled, false);
+  assert.equal(vm.runInContext('startupTrace', t.ctx).state, 'ready');
+  assert.equal(typeof vm.runInContext('startupTrace', t.ctx).report, 'function');
+  const diagnosticText = JSON.stringify(vm.runInContext('startupTrace', t.ctx));
+  assert.equal(diagnosticText.includes('example@test.invalid'), false);
+  assert.equal(diagnosticText.includes('1 Test Lane'), false);
+  assert.equal(diagnosticText.includes('Sam Manager'), false);
+
+  const late = deferred();
+  const stale = await setup({
+    waitForLoad: false,
+    beforeLoad: ({ ctx }) => {
+      ctx.late = late.promise;
+      vm.runInContext(
+        `const original = loadHouseholdMembers;
+      loadHouseholdMembers = async (v) => { await late; return original(v); };`,
+        ctx,
+      );
+    },
+  });
+  await flush();
+  stale.db.auth.getSession = async () => ({ data: { session: null } });
+  await vm.runInContext('load()', stale.ctx);
+  late.resolve();
+  await stale.loadPromise;
+  assert.equal(stale.document.getElementById('directory').hidden, true);
+  assert.equal(stale.document.getElementById('auth').hidden, false);
+  assert.equal(vm.runInContext('members.length', stale.ctx), 0);
+  assert.equal(vm.runInContext('households.length', stale.ctx), 0);
+
+  const gate = deferred();
+  const auth = await setup({
+    waitForLoad: false,
+    beforeLoad: ({ db }) => {
+      const original = db.auth.getSession;
+      db.auth.getSession = async () => {
+        await gate.promise;
+        return original();
+      };
+    },
+  });
+  await flush();
+  assert.equal(auth.document.getElementById('directory').hidden, true);
+  assert.equal(auth.document.getElementById('startup-loading').hidden, false);
+  gate.resolve();
+  await auth.loadPromise;
+
+  const failure = await setup({
+    beforeLoad: ({ ctx }) => {
+      vm.runInContext("loadHouseholdMembers = async () => { throw Error('Test failure'); }", ctx);
+    },
+  });
+  assert.equal(failure.document.getElementById('directory').hidden, false);
+  assert.equal(failure.document.getElementById('startup-loading').hidden, true);
+  assert.equal(failure.document.getElementById('overview-edit').disabled, true);
+  assert.ok(failure.document.getElementById('notice').textContent.includes('some details'));
+  assert.equal(
+    vm
+      .runInContext('startupTrace', failure.ctx)
+      .stages.find((r) => r.stage === 'Members, roles and member photos').state,
+    'failed',
+  );
+  console.log(
+    'PASS: progressive first content before secondary requests, permission gates, navigation preservation, stale sign-out responses, auth loading placeholders, secondary failure isolation and private-data-free startup timings.',
+  );
+})().catch((error) => {
+  console.error(error);
   process.exitCode = 1;
 });

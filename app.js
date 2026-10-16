@@ -32,6 +32,45 @@ let user,
   map,
   markers = [],
   generation = 0;
+let memberDataLoading = false,
+  memberDataFailed = false;
+let startupTrace;
+const startupClock = () => window.performance?.now?.() ?? Date.now();
+function beginStartupTiming() {
+  const trace = { started: startupClock(), stages: [], state: 'loading' };
+  trace.report = () => {
+    console.table(
+      trace.stages.map(({ stage, milliseconds, state }) => ({ stage, milliseconds, state })),
+    );
+    return trace.stages.map((row) => ({ ...row }));
+  };
+  // Local diagnostics only: never include identities, addresses, URLs, or tokens.
+  startupTrace = trace;
+  window.NC_STARTUP = trace;
+  return trace;
+}
+function startupMark(trace, stage) {
+  trace.stages.push({
+    stage,
+    milliseconds: Math.round(startupClock() - trace.started),
+    state: 'milestone',
+  });
+}
+async function startupTask(trace, stage, action) {
+  const started = startupClock();
+  const row = { stage, milliseconds: null, state: 'loading' };
+  trace.stages.push(row);
+  try {
+    const result = await action();
+    row.state = 'ready';
+    return result;
+  } catch (error) {
+    row.state = 'failed';
+    throw error;
+  } finally {
+    row.milliseconds = Math.round(startupClock() - started);
+  }
+}
 let selectedFilter = 'all',
   greetingName = '';
 const directoryPhotos = new Map();
@@ -80,7 +119,8 @@ function view(id) {
   });
   show('directory', !!membership && !['settings', 'calendar'].includes(id));
   if (id === 'calendar') run(openCommunityCalendar);
-  if (id === 'overview' && typeof loadOverviewEvents === 'function') run(loadOverviewEvents);
+  if (id === 'overview' && typeof loadOverviewEvents === 'function')
+    run(() => startupTask(startupTrace, 'Upcoming events', loadOverviewEvents));
   if (id === 'settings') {
     ['join', 'pending', 'invite-panel', 'recovery'].forEach((x) => show(x, false));
     run(renderAccountSettings);
@@ -119,7 +159,15 @@ function view(id) {
     run(async () => {
       const host = id === 'overview' ? $('overview-map') : $('mapview').querySelector('.map-shell');
       host.prepend($('map'));
-      await loadMap();
+      const version = generation;
+      const trace = startupTrace;
+      if (!map) $('overview-map').setAttribute('data-loading', 'true');
+      try {
+        await startupTask(trace, 'Google Maps', () => loadMap(version));
+      } finally {
+        if (version === generation) $('overview-map').removeAttribute('data-loading');
+      }
+      if (version !== generation) return;
       if (map && membership) {
         const preview = !$('overview').hidden;
         map.setOptions({
@@ -145,8 +193,34 @@ function view(id) {
 }
 async function load() {
   const version = ++generation;
-  const session = checked(await db.auth.getSession());
-  user = session.session?.user;
+  const trace = beginStartupTiming();
+  show('startup-loading', true);
+  closePinPopup();
+  memberDataLoading = true;
+  memberDataFailed = false;
+  members = [];
+  membersEnabled = false;
+  memberPhotoUrls.clear();
+  householdLoginRoles.clear();
+  directoryPhotos.clear();
+  householdPhotosReady.clear();
+  membership = null;
+  user = null;
+  greetingName = '';
+  markers.forEach((m) => (m.map = null));
+  markers = [];
+  try {
+    await loadContent(version, trace);
+    trace.state = version !== generation ? 'superseded' : trace.partial ? 'partial' : 'ready';
+  } catch (error) {
+    trace.state = 'failed';
+    throw error;
+  } finally {
+    startupMark(trace, 'Load settled');
+    if (version === generation) show('startup-loading', false);
+  }
+}
+async function loadContent(version, trace) {
   [
     'auth',
     'join',
@@ -163,6 +237,9 @@ async function load() {
     'settings',
     'calendar',
   ].forEach((x) => show(x, false));
+  const session = checked(await startupTask(trace, 'Session', () => db.auth.getSession()));
+  if (version !== generation) return;
+  user = session.session?.user;
   show('signout', !!user);
   show('settings-tab', !!user);
   setSearchOpen(false);
@@ -208,28 +285,36 @@ async function load() {
     show('detail', false);
     if (!$('recovery').hidden) return;
     show('auth', true);
+    startupMark(trace, 'Sign-in visible');
     return;
   }
-  await loadGeocodingCapability(version);
-  if (version !== generation) return;
-  neighborhood = checked(
-    await db.from('neighborhoods').select('*').eq('slug', cfg.neighborhoodSlug).single(),
+  const area = checked(
+    await startupTask(trace, 'Neighborhood', () =>
+      db.from('neighborhoods').select('*').eq('slug', cfg.neighborhoodSlug).single(),
+    ),
   );
+  if (version !== generation) return;
+  neighborhood = area;
   neighborhoodName = neighborhood.name;
   $('brand-neighborhood').textContent = neighborhoodName;
   $('join-heading').textContent = `Join ${neighborhoodName}`;
   $('footer-neighborhood').textContent = ` / ${neighborhoodName}`;
   document.title = `Neighborhood Connect · ${neighborhoodName}`;
-  membership = checked(
-    await db
-      .from('memberships')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('neighborhood_id', neighborhood.id)
-      .maybeSingle(),
+  const access = checked(
+    await startupTask(trace, 'Membership', () =>
+      db
+        .from('memberships')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('neighborhood_id', neighborhood.id)
+        .maybeSingle(),
+    ),
   );
   if (version !== generation) return;
+  membership = access;
   if (!membership) {
+    await startupTask(trace, 'Geocoding capability', () => loadGeocodingCapability(version));
+    if (version !== generation) return;
     show('invite-panel', true);
     const request = checked(
       await db
@@ -239,6 +324,7 @@ async function load() {
         .eq('neighborhood_id', neighborhood.id)
         .maybeSingle(),
     );
+    if (version !== generation || !user) return;
     show(request ? 'pending' : 'join', true);
     $('pending-title').textContent =
       request?.status === 'rejected'
@@ -255,36 +341,18 @@ async function load() {
     return;
   }
   syncInvitePanel();
-  households = checked(
-    await db
-      .from('households')
-      .select('*')
-      .eq('neighborhood_id', neighborhood.id)
-      .order('display_name'),
+  const homes = checked(
+    await startupTask(trace, 'Households', () =>
+      db
+        .from('households')
+        .select('*')
+        .eq('neighborhood_id', neighborhood.id)
+        .order('display_name'),
+    ),
   );
   if (version !== generation) return;
-  await loadHouseholdLocations(version);
-  if (version !== generation) return;
-  await loadHouseholdMembers(version);
-  if (version !== generation) return;
-  const ownRequest = checked(
-    await db
-      .from('access_requests')
-      .select('name')
-      .eq('user_id', user.id)
-      .eq('neighborhood_id', neighborhood.id)
-      .maybeSingle(),
-  );
-  if (version !== generation) return;
-  greetingName = (
-    members.find((p) => p.user_id === user.id && p.household_id === membership.household_id)
-      ?.display_name ||
-    user.user_metadata?.full_name ||
-    ownRequest?.name ||
-    ''
-  )
-    .trim()
-    .split(/\s+/)[0];
+  households = homes;
+  greetingName = (user.user_metadata?.full_name || '').trim().split(/\s+/)[0];
   show('persontab', membersEnabled);
   show('directory', true);
   show('topnav', true);
@@ -304,11 +372,75 @@ async function load() {
   fillProfile();
   renderMemberManagement();
   renderOverview();
-  await Promise.all([
-    loadMyPhotos(),
-    loadDirectoryPhotos(version),
-    membership.role === 'admin' ? loadRequests() : Promise.resolve(),
-  ]);
+  show('startup-loading', false);
+  startupMark(trace, 'Main content visible');
+  window.requestAnimationFrame?.(() => {
+    if (version === generation && membership) startupMark(trace, 'First content frame');
+  });
+  const current = () => version === generation && !!user && !!membership;
+  const refreshMembers = startupTask(trace, 'Members, roles and member photos', async () => {
+    await loadHouseholdMembers(version);
+    if (!current()) return;
+    memberDataLoading = false;
+    const name = members.find(
+      (p) => p.user_id === user.id && p.household_id === membership.household_id,
+    )?.display_name;
+    if (name) greetingName = name.trim().split(/\s+/)[0];
+    if ($('main-content').dataset.view === 'overview')
+      $('page-title').textContent = greetingName ? `Welcome back, ${greetingName}` : 'Welcome back';
+    show('persontab', membersEnabled);
+    render();
+    fillProfile();
+    renderMemberManagement();
+  });
+  const locations = startupTask(trace, 'Coordinates and optional refresh', async () => {
+    await loadGeocodingCapability(version);
+    if (!current()) return;
+    await loadHouseholdLocations(version);
+    if (!current()) return;
+    if (map) drawMarkers(!$('overview').hidden ? households : visibleHouseholds());
+  });
+  const jobs = [
+    refreshMembers,
+    locations,
+    startupTask(trace, 'Household photos', () => loadDirectoryPhotos(version)),
+    startupTask(trace, 'My photos', async () => {
+      await refreshMembers;
+      if (current()) await loadMyPhotos();
+    }),
+    startupTask(trace, 'Greeting fallback', async () => {
+      const ownRequest = checked(
+        await db
+          .from('access_requests')
+          .select('name')
+          .eq('user_id', user.id)
+          .eq('neighborhood_id', neighborhood.id)
+          .maybeSingle(),
+      );
+      if (!current() || greetingName || !ownRequest?.name) return;
+      greetingName = ownRequest.name.trim().split(/\s+/)[0];
+      if ($('main-content').dataset.view === 'overview')
+        $('page-title').textContent = `Welcome back, ${greetingName}`;
+    }),
+    ...(membership.role === 'admin'
+      ? [
+          startupTask(trace, 'Administrator requests', async () => {
+            await locations;
+            if (current()) await loadRequests();
+          }),
+        ]
+      : []),
+  ];
+  const results = await Promise.allSettled(jobs);
+  if (current() && results.some((result) => result.status === 'rejected')) {
+    trace.partial = true;
+    if (results[0].status === 'rejected') {
+      memberDataFailed = true;
+      renderOverview();
+      fillProfile();
+    }
+    notice('The page is ready, but some details could not load. Refresh to try again.', true);
+  }
 }
 function tags(h) {
   return (h.interests || '')
@@ -456,7 +588,9 @@ function renderOverview() {
             'display_name',
           ];
   $('overview-household').innerHTML =
-    `<div class="household-summary"><div class="household-summary-photo">${householdImage(h, 'overview')}</div><div class="household-summary-details"><h3>${esc(h.display_name)}</h3><p>${esc(h.address)}</p><small>${membersEnabled ? `${members.filter((p) => p.household_id === h.id).length} household members` : h.residents ? 'Residents listed on your profile' : 'Your home in ' + esc(neighborhoodName)}</small></div></div><div class="profile-prompt"><span class="prompt-icon" aria-hidden="true">✎</span><div><strong>${gap[0]}</strong><p>${gap[1]}</p></div><button id="overview-complete">${gap[2]}</button></div>`;
+    `<div class="household-summary"><div class="household-summary-photo">${householdImage(h, 'overview')}</div><div class="household-summary-details"><h3>${esc(h.display_name)}</h3><p>${esc(h.address)}</p><small>${memberDataFailed ? 'Member details unavailable' : memberDataLoading ? 'Loading members…' : membersEnabled ? `${members.filter((p) => p.household_id === h.id).length} household members` : h.residents ? 'Residents listed on your profile' : 'Your home in ' + esc(neighborhoodName)}</small></div></div><div class="profile-prompt"><span class="prompt-icon" aria-hidden="true">✎</span><div><strong>${gap[0]}</strong><p>${gap[1]}</p></div><button id="overview-complete">${gap[2]}</button></div>`;
+  $('overview-edit').disabled = memberDataLoading;
+  $('overview-complete').disabled = memberDataLoading;
   $('overview-complete').onclick = () => {
     view('profile');
     const target = gap[3] === 'upload' ? $('upload') : $('profileform').elements[gap[3]];
@@ -534,9 +668,10 @@ async function ensureGoogleMaps() {
     });
   return mapsPromise;
 }
-async function loadMap() {
+async function loadMap(version = generation) {
   try {
     await ensureGoogleMaps();
+    if (version !== generation || !membership) return;
     if (!map) {
       map = new google.maps.Map($('map'), {
         center: cfg.center,
@@ -550,7 +685,8 @@ async function loadMap() {
     }
     render();
   } catch (e) {
-    notice(e.message, true);
+    if (version === generation) notice(e.message, true);
+    throw e;
   }
 }
 let pinPopup,
@@ -716,8 +852,11 @@ function fillProfile() {
   $('upload').disabled = !editable;
   show('household-permission', !editable);
   fillHouseholdPhotoControls();
-  $('household-permission').textContent =
-    'A household manager maintains this shared profile and its photos. You can edit your personal profile in My profile.';
+  $('household-permission').textContent = memberDataFailed
+    ? 'Household permissions could not load. Refresh to try again.'
+    : memberDataLoading
+      ? 'Loading household permissions…'
+      : 'A household manager maintains this shared profile and its photos. You can edit your personal profile in My profile.';
 }
 async function loadMyPhotos() {
   const id = membership.household_id;

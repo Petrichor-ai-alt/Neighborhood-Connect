@@ -5,7 +5,11 @@ let members = [],
 const memberPhotoUrls = new Map(),
   householdLoginRoles = new Map();
 function canManageHousehold() {
-  return !!membership && (!membersEnabled || membership.household_role === 'manager');
+  return (
+    !!membership &&
+    !memberDataLoading &&
+    (!membersEnabled || membership.household_role === 'manager')
+  );
 }
 function canEditMember(p) {
   return (
