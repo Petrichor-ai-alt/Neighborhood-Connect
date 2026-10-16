@@ -1,5 +1,35 @@
 'use strict';
 let accountSettingsReady = false;
+function accountProviders(account = user) {
+  return new Set([
+    ...(account?.app_metadata?.providers || []),
+    ...(account?.identities || []).map((identity) => identity.provider),
+  ]);
+}
+function googleOnlyAccount(account = user) {
+  const providers = accountProviders(account);
+  return providers.has('google') && !providers.has('email');
+}
+function renderAccountSignInMethods() {
+  const providers = accountProviders();
+  const googleOnly = googleOnlyAccount();
+  $('settings-providers').textContent = providers.has('google')
+    ? googleOnly
+      ? 'Google'
+      : 'Google · Email and password'
+    : 'Email and password';
+  show('account-google-email-note', providers.has('google'));
+  show('account-google-password-note', googleOnly);
+  show('account-google-delete-note', providers.has('google'));
+  show('account-email-form', !googleOnly);
+  const current = $('account-password-form').elements.current_password;
+  current.disabled = googleOnly;
+  current.required = !googleOnly;
+  show('account-current-password-field', !googleOnly);
+  $('account-password-form').querySelector('button').textContent = googleOnly
+    ? 'Set Neighborhood Connect password'
+    : 'Update password';
+}
 function showAccountSettingsPage(page = 'menu', focus = true) {
   if (!['menu', 'email', 'password', 'contacts', 'sessions', 'delete'].includes(page)) return;
   document.querySelectorAll('[data-account-settings-page]').forEach((section) => {
@@ -44,9 +74,19 @@ function clearAccountSettings() {
     'settings-household',
     'settings-role',
     'settings-pending-email',
+    'settings-providers',
   ].forEach((id) => ($(id).textContent = ''));
   show('account-contacts-form', false);
   show('account-delete-form', false);
+  [
+    'account-google-email-note',
+    'account-google-password-note',
+    'account-google-delete-note',
+  ].forEach((id) => show(id, false));
+  show('account-email-form', true);
+  $('account-password-form').elements.current_password.disabled = false;
+  $('account-password-form').elements.current_password.required = true;
+  show('account-current-password-field', true);
 }
 async function renderAccountSettings(page = 'menu') {
   if (!user) return;
@@ -57,6 +97,7 @@ async function renderAccountSettings(page = 'menu') {
   const fresh = checked(await db.auth.getUser()).user;
   if (version !== generation || identity !== user?.id || $('settings').hidden) return;
   user = fresh;
+  renderAccountSignInMethods();
   const person = members.find(
     (p) => p.user_id === user.id && p.household_id === membership?.household_id,
   );
@@ -100,7 +141,7 @@ async function renderAccountSettings(page = 'menu') {
       'Hidden contact details stay private to your account.';
   } else
     $('account-contacts-status').textContent =
-      'Contact information become available when your individual profile is linked to your account.';
+      'Contact information becomes available when your individual profile is linked to your account.';
   $('account-delete-status').textContent =
     settings.deletion_blocker ||
     'You can delete your account after confirming your password below.';
@@ -152,6 +193,7 @@ function initAccountSettings() {
   $('settings-menu-back').onclick = () => showAccountSettingsPage();
   $('settings-back').onclick = () => (membership ? view('overview') : run(load));
   accountForm('account-email-form', async (values, form) => {
+    if (googleOnlyAccount()) throw Error('Your Google account email is managed by Google.');
     if (values.email.trim().toLowerCase() === user.email.toLowerCase())
       throw Error('Enter a different sign-in email.');
     await verifyAccountPassword(values.current_password);
@@ -171,7 +213,13 @@ function initAccountSettings() {
     if (values.password !== values.confirm_password) throw Error('The new passwords do not match.');
     if (values.password.length < 12) throw Error('Use at least 12 characters.');
     if (values.password === values.current_password) throw Error('Choose a different password.');
-    await verifyAccountPassword(values.current_password);
+    if (googleOnlyAccount()) {
+      const identity = user.id;
+      const fresh = checked(await db.auth.getUser()).user;
+      if (fresh?.id !== identity) throw Error('Your session changed. Sign in again.');
+      user = fresh;
+      if (!googleOnlyAccount()) throw Error('Reload password settings before continuing.');
+    } else await verifyAccountPassword(values.current_password);
     checked(await db.auth.updateUser({ password: values.password }));
     notice('Password updated. You can also sign out all devices in Signed-in sessions.');
   });

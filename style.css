@@ -2291,6 +2291,32 @@ footer a {
 }
 
 /* Private account settings reuse the community dashboard's surfaces. */
+.google-signin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  color: #1f1f1f;
+  background: #fff;
+  border: 1px solid #747775;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.google-signin svg {
+  flex-shrink: 0;
+}
+.google-signin:hover {
+  background: #f2f4f7;
+}
+.auth-divider {
+  margin: 18px 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted);
+}
 #settings {
   max-width: 1120px;
 }

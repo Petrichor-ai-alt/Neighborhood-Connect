@@ -207,6 +207,10 @@ async function setup({
         calls.push({ name: 'signInWithPassword', args });
         return { data: { user: { id: account } } };
       },
+      signInWithOAuth: async (args) => {
+        calls.push({ name: 'signInWithOAuth', args });
+        return { data: { url: 'https://accounts.google.com/test' } };
+      },
       updateUser: async (args, options) => {
         calls.push({ name: 'updateUser', args, options });
         return { data: { user: { id: account } } };
@@ -1109,6 +1113,100 @@ async function setup({
   assert.equal(signed.document.getElementById('settings-menu').hidden, true);
   console.log(
     'PASS: dedicated password reset from sign-in/settings, email prefill, explicit send, inline confirmation, back navigation, password clearing and stale request isolation.',
+  );
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
+
+(async () => {
+  const { ctx, document, calls } = await setup({ signed: false });
+  const $ = (id) => document.getElementById(id);
+  await $('google-signin').onclick();
+  const oauth = calls.find((c) => c.name === 'signInWithOAuth');
+  assert.equal(oauth.args.provider, 'google');
+  assert.equal(oauth.args.options.redirectTo, 'https://example.test/');
+  assert.equal(oauth.args.options.queryParams.prompt, 'select_account');
+  assert.equal(oauth.args.options.scopes, undefined);
+  assert.equal($('google-signin').disabled, false);
+  assert.equal($('directory').hidden, true);
+  assert.equal(
+    calls.some((c) => c.name === 'review_request' || c.name === 'save_member'),
+    false,
+  );
+  let release;
+  ctx.waitGoogle = () =>
+    new Promise((resolve) => {
+      release = resolve;
+    });
+  vm.runInContext('db.auth.signInWithOAuth = waitGoogle', ctx);
+  const waiting = $('google-signin').onclick();
+  assert.equal($('google-signin').disabled, true);
+  await $('google-signin').onclick();
+  release({ error: { message: 'provider disabled' } });
+  await waiting;
+  assert.equal($('google-signin').disabled, false);
+  assert.ok($('notice').textContent.includes('use email and password'));
+  ctx.location.href =
+    'https://example.test/#error=access_denied&error_description=private-provider-detail';
+  vm.runInContext('checkGoogleSignInReturn()', ctx);
+  assert.ok($('notice').textContent.includes('canceled'));
+  assert.equal($('notice').textContent.includes('private-provider-detail'), false);
+
+  const google = await setup({
+    approved: false,
+    beforeLoad: ({ db }) => {
+      db.auth.getUser = async () => ({
+        data: {
+          user: {
+            id: 'manager',
+            email: 'example@test.invalid',
+            email_confirmed_at: '2026-01-01',
+            app_metadata: { providers: ['google'] },
+            identities: [{ provider: 'google' }],
+            user_metadata: {},
+          },
+        },
+      });
+    },
+  });
+  const g = (id) => google.document.getElementById(id);
+  vm.runInContext("view('settings')", google.ctx);
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(g('settings-providers').textContent, 'Google');
+  assert.equal(g('account-email-form').hidden, true);
+  assert.equal(g('account-google-password-note').hidden, false);
+  assert.equal(g('account-google-delete-note').hidden, false);
+  assert.equal(g('account-password-form').elements.current_password.disabled, true);
+  assert.equal(g('directory').hidden, true);
+  vm.runInContext("view('browse')", google.ctx);
+  assert.equal(g('directory').hidden, true);
+  const password = g('account-password-form');
+  password.elements.password.value = 'optional-app-password';
+  password.elements.confirm_password.value = 'optional-app-password';
+  password.onsubmit({ preventDefault() {}, target: password });
+  await new Promise((r) => setTimeout(r, 5));
+  assert.equal(
+    google.calls.find((c) => c.name === 'updateUser').args.password,
+    'optional-app-password',
+  );
+  assert.equal(
+    google.calls.some((c) => c.name === 'signInWithPassword'),
+    false,
+  );
+  assert.equal(password.elements.password.value, '');
+  vm.runInContext(
+    'user.app_metadata.providers = ["email", "google"]; renderAccountSignInMethods()',
+    google.ctx,
+  );
+  assert.equal(g('account-email-form').hidden, false);
+  assert.equal(password.elements.current_password.disabled, false);
+  assert.equal(g('settings-providers').textContent, 'Google · Email and password');
+  vm.runInContext('clearAccountSettings()', google.ctx);
+  assert.equal(g('settings-providers').textContent, '');
+  assert.equal(g('account-google-delete-note').hidden, true);
+  console.log(
+    'PASS: Google redirect with fixed destination and minimal scopes, duplicate-click guard, failure/cancel feedback, Google-only/linked account settings, optional app password and preserved approval gates.',
   );
 })().catch((error) => {
   console.error(error);

@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="style.css?v=password-reset-screen-1" />
+    <link rel="stylesheet" href="style.css?v=google-sign-in-1" />
     <script
       src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"
       defer
@@ -22,9 +22,9 @@
     <script src="geocoding.js?v=address-geocoding-1" defer></script>
     <script src="household-photos.js?v=photo-priority-2" defer></script>
     <script src="members.js?v=progressive-startup-1" defer></script>
-    <script src="account-settings.js?v=password-reset-screen-1" defer></script>
+    <script src="account-settings.js?v=google-sign-in-1" defer></script>
     <script src="calendar.js?v=home-dashboard-1" defer></script>
-    <script src="app.js?v=password-reset-screen-1" defer></script>
+    <script src="app.js?v=google-sign-in-1" defer></script>
   </head>
   <body>
     <header class="mobile-header">
@@ -268,6 +268,28 @@
           Sign in to your account or join the neighborhood. Directory access requires resident
           approval.
         </p>
+        <button id="google-signin" type="button" class="google-signin">
+          <svg aria-hidden="true" viewBox="0 0 48 48" width="20" height="20">
+            <path
+              fill="#EA4335"
+              d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5Z"
+            />
+            <path
+              fill="#4285F4"
+              d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6C44.4 38.03 46.98 31.87 46.98 24.55Z"
+            />
+            <path
+              fill="#FBBC05"
+              d="M10.53 28.59A14.4 14.4 0 0 1 9.75 24c0-1.59.27-3.13.76-4.59l-7.98-6.19A23.8 23.8 0 0 0 0 24c0 3.87.93 7.53 2.56 10.78l7.97-6.19Z"
+            />
+            <path
+              fill="#34A853"
+              d="M24 48c6.48 0 11.93-2.13 15.91-5.8l-7.73-6c-2.15 1.45-4.92 2.3-8.18 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48Z"
+            />
+          </svg>
+          <span>Continue with Google</span>
+        </button>
+        <p class="auth-divider">or use your email</p>
         <form id="authform">
           <label>Email<input name="email" type="email" autocomplete="email" required /></label
           ><label
@@ -733,6 +755,10 @@
               <dd id="settings-verified"></dd>
             </div>
             <div>
+              <dt>Sign-in methods</dt>
+              <dd id="settings-providers"></dd>
+            </div>
+            <div>
               <dt>Neighborhood</dt>
               <dd id="settings-neighborhood"></dd>
             </div>
@@ -785,6 +811,10 @@
               hidden
             >
               <h2 id="account-email-heading" tabindex="-1">Sign-in email</h2>
+              <p id="account-google-email-note" class="settings-note" hidden>
+                You can sign in with Google. Your Google account email is managed by Google. Your
+                contact email for neighbors can be changed in Contact information.
+              </p>
               <p>
                 Used to sign in and receive account emails. This address is private. To change how
                 neighbors reach you, use Contact information.
@@ -821,9 +851,14 @@
               hidden
             >
               <h2 id="account-password-heading" tabindex="-1">Password</h2>
+              <p id="account-google-password-note" class="settings-note" hidden>
+                Google sign-in does not require a Neighborhood Connect password. You can set one
+                below for optional email sign-in and account deletion. Never enter your Google
+                password here.
+              </p>
               <p>Choose a password you do not use elsewhere.</p>
               <form id="account-password-form">
-                <label
+                <label id="account-current-password-field"
                   >Current password<input
                     name="current_password"
                     type="password"
@@ -932,6 +967,14 @@
               neighborhood must keep another administrator too.
             </p>
             <p id="account-delete-status">Loading account deletion options…</p>
+            <p id="account-google-delete-note" class="settings-note" hidden>
+              Deletion requires your Neighborhood Connect password, not your Google password. If you
+              have not set one,
+              <a href="#account-password" data-account-page="password"
+                >set a Neighborhood Connect password</a
+              >
+              first, then return here.
+            </p>
             <form id="account-delete-form" hidden>
               <label
                 >Current password<input

@@ -1098,6 +1098,41 @@ async function loadRequests() {
     });
   await prepareRequestLocations(rows, version);
 }
+async function continueWithGoogle() {
+  const button = $('google-signin');
+  if (button.disabled) return;
+  button.disabled = true;
+  notice('Opening Google sign-in…');
+  try {
+    const result = await db.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: cfg.authRedirectUrl,
+        queryParams: { prompt: 'select_account' },
+      },
+    });
+    if (result.error) {
+      notice('Google sign-in could not start. Please try again or use email and password.', true);
+    }
+  } catch {
+    notice('Google sign-in could not start. Please try again or use email and password.', true);
+  } finally {
+    button.disabled = false;
+  }
+}
+function checkGoogleSignInReturn() {
+  const url = new URL(location.href);
+  const hash = new URLSearchParams(url.hash.slice(1));
+  if (!hash.has('error') && !url.searchParams.has('error')) return;
+  notice('Sign-in was canceled or could not be completed. Please try again.', true);
+  for (const name of ['error', 'error_code', 'error_description']) {
+    hash.delete(name);
+    url.searchParams.delete(name);
+  }
+  url.hash = hash.toString();
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+}
+$('google-signin').onclick = continueWithGoogle;
 $('authform').onsubmit = (e) => {
   e.preventDefault();
   run(async () => {
@@ -1401,4 +1436,5 @@ initDiscussions();
 initAccountSettings();
 initMembersUI();
 initHouseholdPhotos();
+checkGoogleSignInReturn();
 run(load);
